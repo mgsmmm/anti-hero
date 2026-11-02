@@ -36,9 +36,9 @@ let shopUpgrades = {
 };
 
 const HERO_TYPES = {
-  MARIO: { name: 'Super Hero', hp: 100, speed: 2.5, gold: 15, color: '#ef4444', maxJumpPower: -5.5, icon: '🏃' },
-  LUIGI: { name: 'High Jumper', hp: 100, speed: 3.0, gold: 20, color: '#22c55e', maxJumpPower: -6.2, icon: '🤸' },
-  TANK: { name: 'Armor Knight', hp: 100, speed: 1.6, gold: 30, color: '#475569', maxJumpPower: -4.8, icon: '🛡️' }
+  MARIO: { name: 'Super Hero', hp: 100, speed: 2.5, gold: 15, color: '#ef4444', maxJumpPower: -6.5, icon: '🏃' },
+  LUIGI: { name: 'High Jumper', hp: 100, speed: 3.0, gold: 20, color: '#22c55e', maxJumpPower: -7.5, icon: '🤸' },
+  TANK: { name: 'Armor Knight', hp: 100, speed: 1.6, gold: 30, color: '#475569', maxJumpPower: -5.5, icon: '🛡️' }
 };
 
 function initStars() {
@@ -59,7 +59,7 @@ function initGrid() {
   const groundRow = 15;
   const castleStartCol = 35;
 
-  // 1. Build Base Ground & Castle Structure
+  // 1. Main Ground & Castle
   for (let c = 0; c < GRID_COLS; c++) {
     if (c < castleStartCol) {
       grid[groundRow][c] = { type: 'GROUND_TILE', solid: true };
@@ -72,20 +72,20 @@ function initGrid() {
     }
   }
 
-  // 2. Add Multi-Tier Platforms (Upper & Middle Paths)
-  // Low Platform (Left)
-  for (let c = 6; c <= 12; c++) {
-    grid[11][c] = { type: 'GROUND_TILE', solid: true };
-  }
-  
-  // High Platform (Center-Left)
-  for (let c = 15; c <= 21; c++) {
-    grid[8][c] = { type: 'GROUND_TILE', solid: true };
+  // 2. Elevated Multi-Tier Platforms & Connecting Ramps
+  // Lower Platform (spanning columns 6 to 13)
+  for (let c = 6; c <= 13; c++) {
+    grid[12][c] = { type: 'GROUND_TILE', solid: true };
   }
 
-  // Mid Platform (Center-Right)
-  for (let c = 24; c <= 30; c++) {
-    grid[11][c] = { type: 'GROUND_TILE', solid: true };
+  // Upper Platform (spanning columns 15 to 24)
+  for (let c = 15; c <= 24; c++) {
+    grid[9][c] = { type: 'GROUND_TILE', solid: true };
+  }
+
+  // High Bridge Platform (spanning columns 26 to 33)
+  for (let c = 26; c <= 33; c++) {
+    grid[12][c] = { type: 'GROUND_TILE', solid: true };
   }
 
   trapManager = new TrapManager(grid, GRID_ROWS, GRID_COLS);
@@ -250,56 +250,48 @@ function updateHeroes() {
     const currentGX = Math.floor((h.x + h.width / 2) / tileSize);
     const currentGY = Math.floor((h.y + h.height - 2) / tileSize);
 
-    let obstacleDistance = -1;
-    let wallHeight = 0;
-    let trapDistance = -1;
-    let platformAboveDistance = -1;
+    let obstacleAhead = false;
+    let trapAhead = false;
+    let platformAbove = false;
 
-    for (let dist = 1; dist <= 3; dist++) {
+    // Scan ahead for obstacles, traps, or upper platforms
+    for (let dist = 1; dist <= 4; dist++) {
       const lookGX = currentGX + dist * h.direction;
       
-      let hCount = 0;
+      // Check for walls / obstacles ahead
       for (let checkY = currentGY; checkY >= Math.max(0, currentGY - 3); checkY--) {
-        if (isTileSolid(lookGX, checkY)) hCount++;
-      }
-      if (hCount > 0 && obstacleDistance === -1) {
-        obstacleDistance = dist;
-        wallHeight = hCount;
+        if (isTileSolid(lookGX, checkY)) obstacleAhead = true;
       }
 
-      if (isTileDangerousTrap(lookGX, currentGY + 1) || isTileDangerousTrap(lookGX, currentGY)) {
-        if (trapDistance === -1) {
-          trapDistance = dist;
-        }
+      // Check for traps ahead
+      if (isTileDangerousTrap(lookGX, currentGY) || isTileDangerousTrap(lookGX, currentGY + 1)) {
+        trapAhead = true;
       }
 
-      // Detect elevated platforms to climb alternative paths
+      // Check for elevated platforms above to route heroes upward
       if (isTileSolid(lookGX, currentGY - 3) || isTileSolid(lookGX, currentGY - 4)) {
-        if (platformAboveDistance === -1) platformAboveDistance = dist;
+        platformAbove = true;
       }
     }
 
-    // 1st Ground/Platform Jump
+    // 1st Ground / Platform Jump (Active Multi-Path Routing)
     if (h.isGrounded && h.jumpCooldown <= 0) {
-      if ((obstacleDistance > 0 && obstacleDistance <= 2) || (trapDistance > 0 && trapDistance <= 2) || platformAboveDistance === 1) {
-        let neededPower = h.maxJumpPower;
-        if (wallHeight === 1 && trapDistance === -1) neededPower *= 0.70;
-
-        h.vy = neededPower;
+      if (obstacleAhead || trapAhead || platformAbove) {
+        h.vy = h.maxJumpPower;
         h.isGrounded = false;
         h.jumpCount = 1;
-        h.jumpCooldown = 15;
+        h.jumpCooldown = 12;
         audio.playSpring();
         addParticle(h.x + h.width / 2, h.y + h.height, '#94a3b8', 4);
       }
     }
-    // 2nd Double Jump to reach higher platforms or recover
-    else if (!h.isGrounded && h.jumpCount === 1 && h.jumpCooldown <= 0 && h.vy > -0.5) {
-      const landingGX = Math.floor((h.x + h.vx * 8 * h.direction) / tileSize);
-      if (isTileDangerousTrap(landingGX, currentGY + 1) || isTileSolid(landingGX, currentGY) || trapDistance > 0) {
-        h.vy = h.maxJumpPower * 0.55;
+    // 2nd Double Jump to clear high walls or reach upper platforms
+    else if (!h.isGrounded && h.jumpCount === 1 && h.jumpCooldown <= 0 && h.vy > -1) {
+      const landingGX = Math.floor((h.x + h.vx * 10 * h.direction) / tileSize);
+      if (obstacleAhead || trapAhead || isTileSolid(landingGX, currentGY - 2)) {
+        h.vy = h.maxJumpPower * 0.70;
         h.jumpCount = 2;
-        h.jumpCooldown = 20;
+        h.jumpCooldown = 18;
         audio.playSpring();
         addParticle(h.x + h.width / 2, h.y + h.height, '#38bdf8', 6);
       }
@@ -339,7 +331,7 @@ function updateHeroes() {
 
     h.x = nextX;
 
-    // Vertical Physics & Landing Detection Across Multi-Tier Platforms
+    // Vertical Physics & Multi-Tier Landing Detection
     h.y += h.vy * gameSpeed;
     h.vy += gravity * gameSpeed;
 
@@ -358,26 +350,19 @@ function updateHeroes() {
       h.jumpCount = 0;
     }
 
-    // STRICT 2-HIT TRAP DAMAGE (50% MAX HP DAMAGE)
+    // 1-TAP TRAP ELIMINATION
     const gridX = Math.floor((h.x + h.width / 2) / tileSize);
     const gridY = Math.floor((h.y + h.height / 2) / tileSize);
     const tileUnder = grid[gridY]?.[gridX];
 
     if (tileUnder && tileUnder.type === 'TRAP') {
       if (tileUnder.trapId !== 'BRICK' && h.lastHitTrapTimer <= 0) {
-        const dmg = Math.ceil(h.maxHp * 0.50);
-        h.hp -= dmg;
+        h.hp = 0; // Immediate 1-tap elimination
         h.lastHitTrapTimer = 25;
 
-        addFloatingText(`-50% HP`, h.x + h.width / 2, h.y - 10, '#f43f5e');
-        addParticle(h.x + h.width / 2, h.y + h.height / 2, '#e11d48', 12);
-
-        if (tileUnder.trapId === 'SPIKES' || tileUnder.trapId === 'SAW') {
-          audio.playZap();
-        } else if (tileUnder.trapId === 'GATOR' || tileUnder.trapId === 'ACID') {
-          h.hp = 0;
-          audio.playGatorChomp();
-        }
+        addFloatingText(`💥 1-TAP!`, h.x + h.width / 2, h.y - 10, '#f43f5e');
+        addParticle(h.x + h.width / 2, h.y + h.height / 2, '#e11d48', 16);
+        audio.playZap();
       }
     }
 
@@ -557,7 +542,9 @@ function drawGame() {
   });
 
   if (hoverGridX >= 0 && hoverGridX < GRID_COLS && hoverGridY >= 0 && hoverGridY < GRID_ROWS) {
-    ctx.fillStyle = isDemolishMode ? 'rgba(244, 63, 94, 0.4)' : 'rgba(245, 158, 11, 0.4)';
+    // 5-tile spawn protection zone check for hover indicator
+    const isSpawnProtected = hoverGridX <= 5;
+    ctx.fillStyle = isSpawnProtected ? 'rgba(239, 68, 68, 0.4)' : (isDemolishMode ? 'rgba(244, 63, 94, 0.4)' : 'rgba(245, 158, 11, 0.4)');
     ctx.fillRect(hoverGridX * tileSize, hoverGridY * tileSize, tileSize * (isDemolishMode ? 1 : selectedTrap.width), tileSize);
   }
 
@@ -652,6 +639,12 @@ function handleCanvasClick(e) {
 
   if (gx < 0 || gx >= GRID_COLS || gy < 0 || gy >= GRID_ROWS) return;
 
+  // STRICT 5-TILE SPAWN PROTECTION ZONE CHECK (Columns 0 to 5)
+  if (!isDemolishMode && gx <= 5) {
+    addFloatingText(`⚠️ SPAWN PROTECTED!`, e.clientX - rect.left, e.clientY - rect.top, '#ef4444');
+    return;
+  }
+
   if (isDemolishMode) {
     const demolishedTrap = trapManager.demolishTrap(gx, gy);
     if (demolishedTrap) {
@@ -676,6 +669,7 @@ function handleCanvasRightClick(e) {
   const gx = Math.floor((e.clientX - rect.left) / tileSize);
   const gy = Math.floor((e.clientY - rect.top) / tileSize);
 
+  // Prevent demolishing spawn buffer zone tiles if desired, or allow freely
   const demolishedTrap = trapManager.demolishTrap(gx, gy);
   if (demolishedTrap) {
     gold += Math.floor(demolishedTrap.cost * 0.75);
