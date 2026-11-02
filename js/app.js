@@ -18,10 +18,12 @@ let hoverGridY = -1;
 let grid = [];
 let trapManager = null;
 
+// Game Entities & Visual Buffers
 let heroes = [];
 let heroesToSpawn = [];
 let particles = [];
 let floatingTexts = [];
+let stars = [];
 let spawnTimer = 0;
 let spawnInterval = 45;
 let animTimer = 0;
@@ -29,15 +31,27 @@ let animTimer = 0;
 let shopUpgrades = {
   FORTRESS_WALLS: { level: 0, max: 5, baseCost: 200, name: 'Fortress Reinforcements', icon: '🏰', desc: '+5 Castle HP max & heal castle.' },
   MANA_HARVEST: { level: 0, max: 5, baseCost: 180, name: 'Mana Harvesting', icon: '🪙', desc: 'Gain +15% bonus Gold from all hero eliminations.' },
-  TRAP_POWER: { level: 0, max: 5, baseCost: 250, name: 'Trap Overclocking', icon: '⚡', desc: 'Increase all trap damage by +10% globally.' },
+  TRAP_POWER: { level: 0, max: 5, baseCost: 250, name: 'Trap Overclocking', icon: '⚡', desc: 'Increase all trap damage globally.' },
   AUTO_REPAIR: { level: 0, max: 3, baseCost: 300, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 1 Castle HP after every wave.' }
 };
 
 const HERO_TYPES = {
-  MARIO: { name: 'Super Hero', hp: 140, speed: 2.5, gold: 15, color: '#ef4444', maxJumpPower: -9.5, icon: '🏃', canDoubleJump: false },
-  LUIGI: { name: 'High Jumper', hp: 110, speed: 3.0, gold: 20, color: '#22c55e', maxJumpPower: -11.5, icon: '🤸', canDoubleJump: true },
-  TANK: { name: 'Armor Knight', hp: 350, speed: 1.6, gold: 30, color: '#475569', maxJumpPower: -8.0, icon: '🛡️', canDoubleJump: false }
+  MARIO: { name: 'Super Hero', hp: 100, speed: 2.5, gold: 15, color: '#ef4444', maxJumpPower: -9.5, icon: '🏃', canDoubleJump: false },
+  LUIGI: { name: 'High Jumper', hp: 100, speed: 3.0, gold: 20, color: '#22c55e', maxJumpPower: -11.5, icon: '🤸', canDoubleJump: true },
+  TANK: { name: 'Armor Knight', hp: 100, speed: 1.6, gold: 30, color: '#475569', maxJumpPower: -8.0, icon: '🛡️', canDoubleJump: false }
 };
+
+function initStars() {
+  stars = [];
+  for (let i = 0; i < 40; i++) {
+    stars.push({
+      x: Math.random() * 1200,
+      y: Math.random() * 300,
+      size: Math.random() * 2 + 1,
+      alpha: Math.random()
+    });
+  }
+}
 
 function initGrid() {
   grid = Array(GRID_ROWS).fill(null).map(() => Array(GRID_COLS).fill(null));
@@ -68,6 +82,7 @@ function resizeCanvas() {
   canvas.width = canvas.parentElement.clientWidth;
   canvas.height = canvas.parentElement.clientHeight;
   tileSize = Math.floor(Math.min(canvas.width / GRID_COLS, canvas.height / GRID_ROWS));
+  initStars();
 }
 
 function addParticle(x, y, color, count = 5) {
@@ -75,8 +90,8 @@ function addParticle(x, y, color, count = 5) {
     particles.push({
       x: x,
       y: y,
-      vx: (Math.random() - 0.5) * 4,
-      vy: (Math.random() - 0.5) * 4 - 1,
+      vx: (Math.random() - 0.5) * 5,
+      vy: (Math.random() - 0.5) * 5 - 1,
       size: Math.random() * 4 + 2,
       color: color,
       life: 20 + Math.random() * 15
@@ -283,23 +298,25 @@ function updateHeroes() {
       h.hasDoubleJumped = false;
     }
 
+    // STRICT 2-HIT TRAP DAMAGE (EXACTLY 50% MAX HP PER CONTACT)
     const gridX = Math.floor((h.x + h.width / 2) / tileSize);
     const gridY = Math.floor((h.y + h.height / 2) / tileSize);
     const tileUnder = grid[gridY]?.[gridX];
 
     if (tileUnder && tileUnder.type === 'TRAP') {
       if (tileUnder.trapId !== 'BRICK' && h.lastHitTrapTimer <= 0) {
-        const dmg = Math.floor(h.maxHp * 0.15);
+        // Exactly 50% max HP damage per hit (2 hits = death)
+        const dmg = Math.ceil(h.maxHp * 0.50);
         h.hp -= dmg;
-        h.lastHitTrapTimer = 30;
+        h.lastHitTrapTimer = 25;
 
-        addFloatingText(`-${dmg}`, h.x + h.width / 2, h.y - 10, '#f43f5e');
-        addParticle(h.x + h.width / 2, h.y + h.height / 2, '#e11d48', 8);
+        addFloatingText(`-50% HP`, h.x + h.width / 2, h.y - 10, '#f43f5e');
+        addParticle(h.x + h.width / 2, h.y + h.height / 2, '#e11d48', 12);
 
         if (tileUnder.trapId === 'SPIKES' || tileUnder.trapId === 'SAW') {
           audio.playZap();
         } else if (tileUnder.trapId === 'GATOR' || tileUnder.trapId === 'ACID') {
-          h.hp -= Math.floor(h.maxHp * 0.40);
+          h.hp = 0; // Pits remain instant execution
           audio.playGatorChomp();
         }
       }
@@ -327,7 +344,7 @@ function updateHeroes() {
       gold += reward;
       kills++;
       addFloatingText(`+${reward}G`, h.x + h.width / 2, h.y - 10, '#f59e0b');
-      addParticle(h.x + h.width / 2, h.y + h.height / 2, '#fbbf24', 12);
+      addParticle(h.x + h.width / 2, h.y + h.height / 2, '#fbbf24', 14);
       heroes.splice(i, 1);
       updateUI();
     }
@@ -364,19 +381,33 @@ function drawGame() {
   animTimer += 0.05;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // 1. Dynamic Parallax Background
   const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  bgGrad.addColorStop(0, '#090d16');
-  bgGrad.addColorStop(1, '#0f172a');
+  bgGrad.addColorStop(0, '#020617');
+  bgGrad.addColorStop(0.6, '#0f172a');
+  bgGrad.addColorStop(1, '#1e1b4b');
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Twinkling Night Stars
+  stars.forEach((s) => {
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + Math.sin(animTimer + s.x) * 0.3})`;
+    ctx.fillRect(s.x, s.y, s.size, s.size);
+  });
+
+  // Floating Atmospheric Fog
+  ctx.fillStyle = 'rgba(99, 102, 241, 0.03)';
+  const fogX = (Math.sin(animTimer * 0.2) * 50);
+  ctx.fillRect(fogX, 100, canvas.width + 100, 150);
+
+  // 2. Draw Textured Map Tiles & Enhanced Traps
   for (let r = 0; r < GRID_ROWS; r++) {
     for (let c = 0; c < GRID_COLS; c++) {
       const x = c * tileSize;
       const y = r * tileSize;
       const tile = grid[r][c];
 
-      ctx.strokeStyle = '#1e293b';
+      ctx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x, y, tileSize, tileSize);
 
@@ -384,20 +415,32 @@ function drawGame() {
         if (tile.type === 'GROUND_TILE') {
           ctx.fillStyle = '#334155';
           ctx.fillRect(x, y, tileSize, tileSize);
+
+          // Vivid Grass Layer
           ctx.fillStyle = '#22c55e';
-          ctx.fillRect(x, y, tileSize, 4);
+          ctx.fillRect(x, y, tileSize, 5);
+          ctx.fillStyle = '#15803d';
+          ctx.fillRect(x, y + 5, tileSize, 2);
         } else if (tile.type === 'DIRT_TILE') {
           ctx.fillStyle = '#1e293b';
           ctx.fillRect(x, y, tileSize, tileSize);
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(x + 4, y + 4, tileSize - 8, tileSize - 8);
         } else if (tile.type === 'CASTLE_TILE') {
-          ctx.fillStyle = '#b45309';
+          // Castle Fortress Walls
+          ctx.fillStyle = '#7c2d12';
           ctx.fillRect(x, y, tileSize, tileSize);
-          ctx.fillStyle = '#78350f';
+          ctx.fillStyle = '#451a03';
           ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+          ctx.fillStyle = '#b45309';
+          ctx.fillRect(x + 4, y + 4, tileSize - 8, 4);
         } else if (tile.type === 'WATER_PIT') {
-          const waveOffset = Math.sin(animTimer + c) * 3;
+          // Animated Gator Water Surface
+          const waveOffset = Math.sin(animTimer * 2 + c) * 3;
           ctx.fillStyle = '#0284c7';
           ctx.fillRect(x, y + waveOffset, tileSize, tileSize - waveOffset);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(x, y + waveOffset, tileSize, 3);
         } else if (tile.type === 'TRAP' && tile.isRoot) {
           const tData = TRAP_TYPES[tile.trapId];
           const w = tileSize * (tData ? tData.width : 1);
@@ -406,10 +449,15 @@ function drawGame() {
             ctx.fillStyle = '#d97706';
             ctx.fillRect(x, y, w, tileSize);
             ctx.strokeStyle = '#78350f';
+            ctx.lineWidth = 2;
             ctx.strokeRect(x + 2, y + 2, w - 4, tileSize - 4);
+            ctx.fillStyle = '#b45309';
+            ctx.fillRect(x + 4, y + 6, w - 8, 4);
           } else {
             ctx.fillStyle = '#3f3f46';
             ctx.fillRect(x, y, w, tileSize);
+            ctx.strokeStyle = '#71717a';
+            ctx.strokeRect(x + 1, y + 1, w - 2, tileSize - 2);
           }
 
           ctx.font = `${Math.floor(tileSize * 0.55)}px sans-serif`;
@@ -421,12 +469,13 @@ function drawGame() {
     }
   }
 
+  // 3. Render Heroes
   heroes.forEach((h) => {
     ctx.fillStyle = h.color;
     ctx.fillRect(h.x, h.y, h.width, h.height);
 
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     ctx.strokeRect(h.x, h.y, h.width, h.height);
 
     ctx.font = `${Math.floor(tileSize * 0.5)}px sans-serif`;
@@ -434,13 +483,15 @@ function drawGame() {
     ctx.textBaseline = 'middle';
     ctx.fillText(h.icon, h.x + h.width / 2, h.y + h.height / 2);
 
+    // HP Bar
     const hpRatio = Math.max(0, h.hp / h.maxHp);
     ctx.fillStyle = '#0f172a';
-    ctx.fillRect(h.x, h.y - 8, h.width, 4);
+    ctx.fillRect(h.x, h.y - 9, h.width, 5);
     ctx.fillStyle = hpRatio > 0.5 ? '#22c55e' : '#ef4444';
-    ctx.fillRect(h.x, h.y - 8, h.width * hpRatio, 4);
+    ctx.fillRect(h.x, h.y - 9, h.width * hpRatio, 5);
   });
 
+  // 4. Render Particles & Floating Damage Numbers
   particles.forEach((p) => {
     ctx.fillStyle = p.color;
     ctx.fillRect(p.x, p.y, p.size, p.size);
@@ -455,6 +506,7 @@ function drawGame() {
     ctx.restore();
   });
 
+  // 5. Placement Hover Box
   if (hoverGridX >= 0 && hoverGridX < GRID_COLS && hoverGridY >= 0 && hoverGridY < GRID_ROWS) {
     ctx.fillStyle = isDemolishMode ? 'rgba(244, 63, 94, 0.4)' : 'rgba(245, 158, 11, 0.4)';
     ctx.fillRect(hoverGridX * tileSize, hoverGridY * tileSize, tileSize * (isDemolishMode ? 1 : selectedTrap.width), tileSize);
