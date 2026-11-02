@@ -8,7 +8,6 @@ let castleHp = 10;
 let maxCastleHp = 10;
 let wave = 1;
 let kills = 0;
-let tries = 1;
 let gameSpeed = 1;
 let isWaveActive = false;
 let selectedTrap = TRAP_TYPES.BRICK;
@@ -19,7 +18,6 @@ let hoverGridY = -1;
 let grid = [];
 let trapManager = null;
 
-// Game Entities & Visual Effects Buffers
 let heroes = [];
 let heroesToSpawn = [];
 let particles = [];
@@ -59,7 +57,6 @@ function initGrid() {
 
   trapManager = new TrapManager(grid, GRID_ROWS, GRID_COLS);
 
-  // Preset starting water pit
   grid[9][12] = null; grid[10][12] = { type: 'WATER_PIT' }; grid[11][12] = { type: 'WATER_PIT' };
   grid[9][13] = null; grid[10][13] = { type: 'WATER_PIT' }; grid[11][13] = { type: 'WATER_PIT' };
   grid[9][12] = { type: 'TRAP', trapId: 'GATOR', isRoot: true, rootX: 12, level: 1 };
@@ -103,11 +100,34 @@ function updateUI() {
   document.getElementById('castle-hp-val').textContent = `${castleHp}/${maxCastleHp}`;
   document.getElementById('castle-hp-bar').style.width = `${Math.max(0, (castleHp / maxCastleHp) * 100)}%`;
   document.getElementById('wave-val').textContent = wave;
-  document.getElementById('tries-val').textContent = tries;
   document.getElementById('kills-val').textContent = kills;
   document.getElementById('shop-gold-display').textContent = `${gold} G`;
   
   renderTrapButtons();
+}
+
+function triggerGameOver() {
+  isWaveActive = false;
+  heroes = [];
+  heroesToSpawn = [];
+  const gameOverModal = document.getElementById('game-over-modal');
+  if (gameOverModal) {
+    gameOverModal.classList.remove('opacity-0', 'pointer-events-none');
+  }
+}
+
+function resetBattle() {
+  castleHp = maxCastleHp;
+  isWaveActive = false;
+  heroes = [];
+  heroesToSpawn = [];
+  initGrid();
+  updateUI();
+
+  const gameOverModal = document.getElementById('game-over-modal');
+  if (gameOverModal) {
+    gameOverModal.classList.add('opacity-0', 'pointer-events-none');
+  }
 }
 
 function startWave() {
@@ -229,16 +249,13 @@ function updateHeroes() {
 
       h.stuckTimer++;
       
-      // Tank Wall Bashing Logic
       if (h.name === 'Armor Knight' && h.stuckTimer > 25) {
         trapManager.demolishTrap(rightGridX, footGridY);
         audio.playBuild();
         addParticle(rightGridX * tileSize + tileSize / 2, footGridY * tileSize + tileSize / 2, '#b45309', 10);
         h.stuckTimer = 0;
-      } 
-      // INSTANT DEATH ON BACKTRACK/TURNING AROUND
-      else if (h.stuckTimer > 30) {
-        h.hp = 0; // Instantly kill hero when forced to turn around
+      } else if (h.stuckTimer > 30) {
+        h.hp = 0;
         addFloatingText(`☠️ CURSED!`, h.x + h.width / 2, h.y - 15, '#e11d48');
         addParticle(h.x + h.width / 2, h.y + h.height / 2, '#991b1b', 16);
       }
@@ -266,7 +283,6 @@ function updateHeroes() {
       h.hasDoubleJumped = false;
     }
 
-    // Trap Damage Processing
     const gridX = Math.floor((h.x + h.width / 2) / tileSize);
     const gridY = Math.floor((h.y + h.height / 2) / tileSize);
     const tileUnder = grid[gridY]?.[gridX];
@@ -289,7 +305,6 @@ function updateHeroes() {
       }
     }
 
-    // Castle Breach
     if (h.x >= 20 * tileSize) {
       castleHp -= 2;
       audio.playCastleHit();
@@ -300,17 +315,12 @@ function updateHeroes() {
 
       if (castleHp <= 0) {
         castleHp = 0;
-        isWaveActive = false;
-        alert("🏰 GAME OVER! The hero army breached your dark castle!");
-        tries++;
-        castleHp = maxCastleHp;
-        initGrid();
         updateUI();
+        triggerGameOver();
       }
       continue;
     }
 
-    // Defeat Handling
     if (h.hp <= 0) {
       audio.playScream();
       const reward = Math.floor(h.gold * (1 + shopUpgrades.MANA_HARVEST.level * 0.15));
@@ -605,6 +615,17 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('start-wave-btn')?.addEventListener('click', () => {
     audio.init();
     startWave();
+  });
+
+  document.getElementById('retry-btn')?.addEventListener('click', () => {
+    audio.init();
+    resetBattle();
+  });
+
+  document.getElementById('main-menu-btn')?.addEventListener('click', () => {
+    audio.init();
+    resetBattle();
+    document.getElementById('main-menu-overlay').classList.remove('hidden');
   });
 
   document.getElementById('sound-btn')?.addEventListener('click', () => {
