@@ -3,9 +3,9 @@
 let canvas, ctx;
 let tileSize = 40;
 
-let gold = 350;
-let castleHp = 30;
-let maxCastleHp = 30;
+let gold = 200; // Lower starting gold budget
+let castleHp = 10; // Reduced Castle HP (Harder defense)
+let maxCastleHp = 10;
 let wave = 1;
 let kills = 0;
 let tries = 1;
@@ -23,20 +23,20 @@ let trapManager = null;
 let heroes = [];
 let heroesToSpawn = [];
 let spawnTimer = 0;
-let spawnInterval = 80;
+let spawnInterval = 45; // Faster hero spawn rate
 
 let shopUpgrades = {
-  FORTRESS_WALLS: { level: 0, max: 5, baseCost: 150, name: 'Fortress Reinforcements', icon: '🏰', desc: '+10 Castle HP max & heal castle.' },
-  MANA_HARVEST: { level: 0, max: 5, baseCost: 120, name: 'Mana Harvesting', icon: '🪙', desc: 'Gain +25% bonus Gold from all hero eliminations.' },
-  TRAP_POWER: { level: 0, max: 5, baseCost: 200, name: 'Trap Overclocking', icon: '⚡', desc: 'Increase all trap damage by +20% globally.' },
-  AUTO_REPAIR: { level: 0, max: 3, baseCost: 250, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 2 Castle HP after every wave.' }
+  FORTRESS_WALLS: { level: 0, max: 5, baseCost: 200, name: 'Fortress Reinforcements', icon: '🏰', desc: '+5 Castle HP max & heal castle.' },
+  MANA_HARVEST: { level: 0, max: 5, baseCost: 180, name: 'Mana Harvesting', icon: '🪙', desc: 'Gain +15% bonus Gold from all hero eliminations.' },
+  TRAP_POWER: { level: 0, max: 5, baseCost: 250, name: 'Trap Overclocking', icon: '⚡', desc: 'Increase all trap damage by +10% globally.' },
+  AUTO_REPAIR: { level: 0, max: 3, baseCost: 300, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 1 Castle HP after every wave.' }
 };
 
-// Next-Gen Hero Archetypes with Enhanced Behaviors
+// Buffed Hero Archetypes (Faster, Agile, Resilient)
 const HERO_TYPES = {
-  MARIO: { name: 'Super Hero', hp: 120, speed: 2.0, gold: 25, color: '#ef4444', maxJumpPower: -8.5, icon: '🏃', canDoubleJump: false },
-  LUIGI: { name: 'High Jumper', hp: 90, speed: 2.4, gold: 35, color: '#22c55e', maxJumpPower: -10.0, icon: '🤸', canDoubleJump: true },
-  TANK: { name: 'Armor Knight', hp: 280, speed: 1.2, gold: 50, color: '#64748b', maxJumpPower: -7.0, icon: '🛡️', canDoubleJump: false }
+  MARIO: { name: 'Super Hero', hp: 140, speed: 2.5, gold: 15, color: '#ef4444', maxJumpPower: -9.5, icon: '🏃', canDoubleJump: false },
+  LUIGI: { name: 'High Jumper', hp: 110, speed: 3.0, gold: 20, color: '#22c55e', maxJumpPower: -11.5, icon: '🤸', canDoubleJump: true },
+  TANK: { name: 'Armor Knight', hp: 350, speed: 1.6, gold: 30, color: '#64748b', maxJumpPower: -8.0, icon: '🛡️', canDoubleJump: false }
 };
 
 function initGrid() {
@@ -57,7 +57,7 @@ function initGrid() {
 
   trapManager = new TrapManager(grid, GRID_ROWS, GRID_COLS);
 
-  // Preset starting pit
+  // Initial gap setup
   grid[9][12] = null; grid[10][12] = { type: 'WATER_PIT' }; grid[11][12] = { type: 'WATER_PIT' };
   grid[9][13] = null; grid[10][13] = { type: 'WATER_PIT' }; grid[11][13] = { type: 'WATER_PIT' };
   grid[9][12] = { type: 'TRAP', trapId: 'GATOR', isRoot: true, rootX: 12, level: 1 };
@@ -88,10 +88,11 @@ function startWave() {
   isWaveActive = true;
   heroesToSpawn = [];
   
-  const heroCount = 4 + wave * 2;
+  // High volume waves
+  const heroCount = 6 + wave * 3;
   for (let i = 0; i < heroCount; i++) {
-    if (i % 3 === 0) heroesToSpawn.push({ ...HERO_TYPES.LUIGI });
-    else if (i % 5 === 0 && wave >= 2) heroesToSpawn.push({ ...HERO_TYPES.TANK });
+    if (i % 2 === 0) heroesToSpawn.push({ ...HERO_TYPES.LUIGI });
+    else if (i % 4 === 0 && wave >= 2) heroesToSpawn.push({ ...HERO_TYPES.TANK });
     else heroesToSpawn.push({ ...HERO_TYPES.MARIO });
   }
 
@@ -139,7 +140,7 @@ function updateHeroes() {
     }
   }
 
-  const gravity = 0.42;
+  const gravity = 0.40;
   const groundY = 9 * tileSize;
 
   for (let i = heroes.length - 1; i >= 0; i--) {
@@ -149,21 +150,15 @@ function updateHeroes() {
 
     const currentGX = Math.floor((h.x + h.width / 2) / tileSize);
 
-    // --- TIER 2 ADVANCED AI LOOKAHEAD & RECOVERY ---
+    // Dynamic Lookahead & Hop Calibration
     let obstacleDistance = -1;
     let wallHeight = 0;
-    let hasHazardAhead = false;
 
     for (let dist = 1; dist <= 4; dist++) {
       const lookGX = currentGX + dist * h.direction;
       let hCount = 0;
       for (let checkY = 8; checkY >= 4; checkY--) {
         if (isTileSolid(lookGX, checkY)) hCount++;
-      }
-
-      const tileAhead = grid[9]?.[lookGX];
-      if (tileAhead && (tileAhead.type === 'WATER_PIT' || (tileAhead.type === 'TRAP' && tileAhead.trapId !== 'BRICK'))) {
-        hasHazardAhead = true;
       }
 
       if (hCount > 0) {
@@ -173,38 +168,24 @@ function updateHeroes() {
       }
     }
 
-    // Ground Jump Execution
     if (h.isGrounded && h.jumpCooldown <= 0) {
-      if (obstacleDistance > 0 && obstacleDistance <= 2) {
+      if (obstacleDistance > 0 && obstacleDistance <= 3) {
         let neededPower = h.maxJumpPower;
-        if (wallHeight === 1) neededPower *= 0.75;
+        if (wallHeight === 1) neededPower *= 0.70;
         
         h.vy = neededPower;
         h.isGrounded = false;
         h.hasDoubleJumped = false;
-        h.jumpCooldown = 28;
-        audio.playSpring();
-      } else if (hasHazardAhead && (obstacleDistance === -1 || obstacleDistance > 1)) {
-        h.vy = h.maxJumpPower * 0.9;
-        h.isGrounded = false;
-        h.hasDoubleJumped = false;
-        h.jumpCooldown = 35;
+        h.jumpCooldown = 20;
         audio.playSpring();
       }
-    } 
-    // Mid-Air Double Jump Emergency Recovery (Luigi Class)
-    else if (!h.isGrounded && h.canDoubleJump && !h.hasDoubleJumped && h.vy > 0) {
-      const landingGX = Math.floor((h.x + h.vx * 15) / tileSize);
-      const landingTile = grid[9]?.[landingGX];
-
-      if (landingTile && (landingTile.type === 'WATER_PIT' || landingTile.type === 'TRAP')) {
-        h.vy = h.maxJumpPower * 0.85;
-        h.hasDoubleJumped = true;
-        audio.playSpring();
-      }
+    } else if (!h.isGrounded && h.canDoubleJump && !h.hasDoubleJumped && h.vy > 0) {
+      h.vy = h.maxJumpPower * 0.9;
+      h.hasDoubleJumped = true;
+      audio.playSpring();
     }
 
-    // --- HORIZONTAL MOVEMENT & WALL DYNAMICS ---
+    // Horizontal Movement
     let moveSpeed = h.speed * h.direction;
     let nextX = h.x + moveSpeed * gameSpeed;
     
@@ -222,14 +203,12 @@ function updateHeroes() {
 
       h.stuckTimer++;
       
-      // Tank Wall Bashing Logic: Demolishes single brick walls after sustained hits
-      if (h.name === 'Armor Knight' && h.stuckTimer > 60) {
+      // Fast wall breaking for Tank units
+      if (h.name === 'Armor Knight' && h.stuckTimer > 25) {
         trapManager.demolishTrap(rightGridX, footGridY);
         audio.playBuild();
         h.stuckTimer = 0;
-      }
-      // Smart Turn-around when blocked
-      else if (h.stuckTimer > 45) {
+      } else if (h.stuckTimer > 30) {
         h.direction *= -1;
         h.stuckTimer = 0;
       }
@@ -239,7 +218,7 @@ function updateHeroes() {
 
     h.x = nextX;
 
-    // --- VERTICAL MOVEMENT & GRAVITY ---
+    // Vertical Physics
     h.y += h.vy * gameSpeed;
     h.vy += gravity * gameSpeed;
 
@@ -258,28 +237,28 @@ function updateHeroes() {
       h.hasDoubleJumped = false;
     }
 
-    // --- TRAP COLLISIONS (50% MAX HP DAMAGE PER HIT) ---
+    // Reduced Trap Damage (15% Max HP per contact)
     const gridX = Math.floor((h.x + h.width / 2) / tileSize);
     const gridY = Math.floor((h.y + h.height / 2) / tileSize);
     const tileUnder = grid[gridY]?.[gridX];
 
     if (tileUnder && tileUnder.type === 'TRAP') {
       if (tileUnder.trapId !== 'BRICK' && h.lastHitTrapTimer <= 0) {
-        h.hp -= h.maxHp * 0.5;
-        h.lastHitTrapTimer = 25;
+        h.hp -= h.maxHp * 0.15; // Moderate damage
+        h.lastHitTrapTimer = 30;
 
         if (tileUnder.trapId === 'SPIKES' || tileUnder.trapId === 'SAW') {
           audio.playZap();
         } else if (tileUnder.trapId === 'GATOR' || tileUnder.trapId === 'ACID') {
-          h.hp = 0;
+          h.hp -= h.maxHp * 0.40; // Pit hazards remain dangerous
           audio.playGatorChomp();
         }
       }
     }
 
-    // --- CASTLE BREACH ---
+    // Castle Breach Logic
     if (h.x >= 20 * tileSize) {
-      castleHp -= 1;
+      castleHp -= 2; // Breaches deal 2 damage per hero
       audio.playCastleHit();
       heroes.splice(i, 1);
       updateUI();
@@ -287,7 +266,7 @@ function updateHeroes() {
       if (castleHp <= 0) {
         castleHp = 0;
         isWaveActive = false;
-        alert("🏰 GAME OVER! The heroes breached your castle defense.");
+        alert("🏰 GAME OVER! The hero army breached your dark castle!");
         tries++;
         castleHp = maxCastleHp;
         initGrid();
@@ -296,10 +275,10 @@ function updateHeroes() {
       continue;
     }
 
-    // --- HERO DEFEAT ---
+    // Hero Defeat
     if (h.hp <= 0) {
       audio.playScream();
-      gold += Math.floor(h.gold * (1 + shopUpgrades.MANA_HARVEST.level * 0.25));
+      gold += Math.floor(h.gold * (1 + shopUpgrades.MANA_HARVEST.level * 0.15));
       kills++;
       heroes.splice(i, 1);
       updateUI();
@@ -310,7 +289,7 @@ function updateHeroes() {
     isWaveActive = false;
     wave++;
     if (shopUpgrades.AUTO_REPAIR.level > 0) {
-      castleHp = Math.min(maxCastleHp, castleHp + shopUpgrades.AUTO_REPAIR.level * 2);
+      castleHp = Math.min(maxCastleHp, castleHp + shopUpgrades.AUTO_REPAIR.level);
     }
     updateUI();
   }
@@ -381,7 +360,7 @@ function renderShop() {
           gold -= cost;
           item.level++;
           if (key === 'FORTRESS_WALLS') {
-            maxCastleHp += 10;
+            maxCastleHp += 5;
             castleHp = maxCastleHp;
           }
           audio.playUpgrade();
@@ -437,7 +416,6 @@ function handleCanvasRightClick(e) {
 function drawGame() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // 1. Draw Map Tiles & Traps
   for (let r = 0; r < GRID_ROWS; r++) {
     for (let c = 0; c < GRID_COLS; c++) {
       const x = c * tileSize;
@@ -473,7 +451,6 @@ function drawGame() {
     }
   }
 
-  // 2. Draw Active Heroes
   heroes.forEach((h) => {
     ctx.fillStyle = h.color;
     ctx.fillRect(h.x, h.y, h.width, h.height);
@@ -490,7 +467,6 @@ function drawGame() {
     ctx.fillRect(h.x, h.y - 8, h.width * hpRatio, 4);
   });
 
-  // 3. Placement Hover Box
   if (hoverGridX >= 0 && hoverGridX < GRID_COLS && hoverGridY >= 0 && hoverGridY < GRID_ROWS) {
     ctx.fillStyle = isDemolishMode ? 'rgba(244, 63, 94, 0.3)' : 'rgba(245, 158, 11, 0.3)';
     ctx.fillRect(hoverGridX * tileSize, hoverGridY * tileSize, tileSize * (isDemolishMode ? 1 : selectedTrap.width), tileSize);
