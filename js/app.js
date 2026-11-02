@@ -23,7 +23,7 @@ let trapManager = null;
 let heroes = [];
 let heroesToSpawn = [];
 let spawnTimer = 0;
-let spawnInterval = 90;
+let spawnInterval = 80;
 
 let shopUpgrades = {
   FORTRESS_WALLS: { level: 0, max: 5, baseCost: 150, name: 'Fortress Reinforcements', icon: '🏰', desc: '+10 Castle HP max & heal castle.' },
@@ -32,11 +32,11 @@ let shopUpgrades = {
   AUTO_REPAIR: { level: 0, max: 3, baseCost: 250, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 2 Castle HP after every wave.' }
 };
 
-// Hero Archetypes
+// Advanced Hero Archetypes with Dynamic Stats
 const HERO_TYPES = {
-  MARIO: { name: 'Super Hero', hp: 100, speed: 1.8, gold: 25, color: '#ef4444', jumpPower: -7.5, icon: '🏃' },
-  LUIGI: { name: 'Jumper Hero', hp: 80, speed: 2.2, gold: 35, color: '#22c55e', jumpPower: -9.0, icon: '🤸' },
-  TANK: { name: 'Armor Knight', hp: 250, speed: 1.1, gold: 50, color: '#64748b', jumpPower: -6.0, icon: '🛡️' }
+  MARIO: { name: 'Super Hero', hp: 120, speed: 2.0, gold: 25, color: '#ef4444', maxJumpPower: -8.5, icon: '🏃', intelligence: 0.9 },
+  LUIGI: { name: 'High Jumper', hp: 90, speed: 2.4, gold: 35, color: '#22c55e', maxJumpPower: -10.5, icon: '🤸', intelligence: 1.0 },
+  TANK: { name: 'Armor Knight', hp: 280, speed: 1.2, gold: 50, color: '#64748b', maxJumpPower: -7.0, icon: '🛡️', intelligence: 0.7 }
 };
 
 function initGrid() {
@@ -57,7 +57,7 @@ function initGrid() {
 
   trapManager = new TrapManager(grid, GRID_ROWS, GRID_COLS);
 
-  // Default starting water pit
+  // Preset starting pit
   grid[9][12] = null; grid[10][12] = { type: 'WATER_PIT' }; grid[11][12] = { type: 'WATER_PIT' };
   grid[9][13] = null; grid[10][13] = { type: 'WATER_PIT' }; grid[11][13] = { type: 'WATER_PIT' };
   grid[9][12] = { type: 'TRAP', trapId: 'GATOR', isRoot: true, rootX: 12, level: 1 };
@@ -108,15 +108,16 @@ function spawnHero(heroData) {
     y: spawnGroundY - tileSize,
     vx: heroData.speed,
     vy: 0,
+    direction: 1, // 1 = right, -1 = left
     width: tileSize * 0.7,
     height: tileSize * 0.9,
     isGrounded: true,
     isCrouching: false,
-    jumpCooldown: 0
+    jumpCooldown: 0,
+    stuckTimer: 0
   });
 }
 
-// Check if grid coordinate is solid or a blocking brick wall
 function isTileSolid(gx, gy) {
   if (gx < 0 || gx >= GRID_COLS || gy < 0 || gy >= GRID_ROWS) return false;
   const tile = grid[gy]?.[gx];
@@ -137,48 +138,102 @@ function updateHeroes() {
     }
   }
 
-  const gravity = 0.4;
+  const gravity = 0.42;
   const groundY = 9 * tileSize;
 
   for (let i = heroes.length - 1; i >= 0; i--) {
     const h = heroes[i];
     if (h.jumpCooldown > 0) h.jumpCooldown--;
 
-    // 1. Horizontal Movement & Solid Wall Collisions
-    let nextX = h.x + h.vx * gameSpeed;
-    
-    // Check right edge bounding box for wall collision
-    const rightGridX = Math.floor((nextX + h.width) / tileSize);
-    const footGridY = Math.floor((h.y + h.height - 2) / tileSize);
-    const headGridY = Math.floor((h.y + 2) / tileSize);
+    const currentGX = Math.floor((h.x + h.width / 2) / tileSize);
+    const currentGY = Math.floor((h.y + h.height / 2) / tileSize);
 
-    const hitWallAtFeet = isTileSolid(rightGridX, footGridY);
-    const hitWallAtHead = isTileSolid(rightGridX, headGridY);
+    // --- 500% SMARTER AI RAYCAST LOOKAHEAD ---
+    if (h.isGrounded && h.jumpCooldown <= 0) {
+      let obstacleDistance = -1;
+      let wallHeight = 0;
+      let hasHazardAhead = false;
 
-    if (hitWallAtFeet || hitWallAtHead) {
-      // BLOCK HERO MOVEMENT AT WALL EDGE
-      nextX = rightGridX * tileSize - h.width - 0.1;
-      
-      // Try jumping over the wall if grounded
-      if (h.isGrounded && h.jumpCooldown <= 0) {
-        h.vy = h.jumpPower;
+      // Scan up to 4 tiles in facing direction
+      for (let dist = 1; dist <= 4; dist++) {
+        const lookGX = currentGX + dist * h.direction;
+        
+        // Check for wall height
+        let hCount = 0;
+        for (let checkY = 8; checkY >= 4; checkY--) {
+          if (isTileSolid(lookGX, checkY)) hCount++;
+        }
+
+        const tileAhead = grid[9]?.[lookGX];
+        if (tileAhead && (tileAhead.type === 'WATER_PIT' || (tileAhead.type === 'TRAP' && tileAhead.trapId !== 'BRICK'))) {
+          hasHazardAhead = true;
+        }
+
+        if (hCount > 0) {
+          obstacleDistance = dist;
+          wallHeight = hCount;
+          break;
+        }
+      }
+
+      // 1. Adaptive Height Jump Logic
+      if (obstacleDistance > 0 && obstacleDistance <= 2) {
+        // Calculate dynamic jump power proportional to obstacle height
+        let neededPower = h.maxJumpPower;
+        if (wallHeight === 1) neededPower *= 0.75; // Low hop for single brick
+        
+        h.vy = neededPower;
         h.isGrounded = false;
-        h.jumpCooldown = 25;
+        h.jumpCooldown = 28;
+        audio.playSpring();
+      } 
+      // 2. Long Jump Over Hazard Pits
+      else if (hasHazardAhead && (obstacleDistance === -1 || obstacleDistance > 1)) {
+        h.vy = h.maxJumpPower * 0.9;
+        h.isGrounded = false;
+        h.jumpCooldown = 35;
         audio.playSpring();
       }
     }
 
+    // --- HORIZONTAL MOVEMENT & WALL COLLISION ---
+    let moveSpeed = h.speed * h.direction;
+    let nextX = h.x + moveSpeed * gameSpeed;
+    
+    const checkEdgeX = h.direction === 1 ? nextX + h.width : nextX;
+    const rightGridX = Math.floor(checkEdgeX / tileSize);
+    const footGridY = Math.floor((h.y + h.height - 2) / tileSize);
+    const headGridY = Math.floor((h.y + 4) / tileSize);
+
+    const hitWallFeet = isTileSolid(rightGridX, footGridY);
+    const hitWallHead = isTileSolid(rightGridX, headGridY);
+
+    if (hitWallFeet || hitWallHead) {
+      // Hard Wall Stop
+      if (h.direction === 1) nextX = rightGridX * tileSize - h.width - 0.1;
+      else nextX = (rightGridX + 1) * tileSize + 0.1;
+
+      h.stuckTimer++;
+      
+      // If blocked for more than 45 frames by an unjumpable wall, SMART TURN AROUND!
+      if (h.stuckTimer > 45) {
+        h.direction *= -1;
+        h.stuckTimer = 0;
+      }
+    } else {
+      h.stuckTimer = Math.max(0, h.stuckTimer - 1);
+    }
+
     h.x = nextX;
 
-    // 2. Vertical Movement & Gravity
+    // --- VERTICAL MOVEMENT & GRAVITY ---
     h.y += h.vy * gameSpeed;
     h.vy += gravity * gameSpeed;
 
-    // Check Landing on Solid Tiles or Brick Walls
-    const currentGridX = Math.floor((h.x + h.width / 2) / tileSize);
     const checkFeetY = Math.floor((h.y + h.height) / tileSize);
+    const centerGX = Math.floor((h.x + h.width / 2) / tileSize);
 
-    if (isTileSolid(currentGridX, checkFeetY)) {
+    if (isTileSolid(centerGX, checkFeetY)) {
       h.y = checkFeetY * tileSize - h.height;
       h.vy = 0;
       h.isGrounded = true;
@@ -188,15 +243,14 @@ function updateHeroes() {
       h.isGrounded = true;
     }
 
-    // 3. Trap Collisions & Damage
+    // --- TRAP COLLISIONS ---
     const gridX = Math.floor((h.x + h.width / 2) / tileSize);
     const gridY = Math.floor((h.y + h.height / 2) / tileSize);
     const tileUnder = grid[gridY]?.[gridX];
 
     if (tileUnder && tileUnder.type === 'TRAP') {
       if (tileUnder.trapId !== 'BRICK') {
-        const damage = 1.5 * gameSpeed;
-        h.hp -= damage;
+        h.hp -= 1.6 * gameSpeed;
 
         if (tileUnder.trapId === 'SPIKES' || tileUnder.trapId === 'SAW') {
           audio.playZap();
@@ -207,7 +261,7 @@ function updateHeroes() {
       }
     }
 
-    // 4. Castle Breach
+    // --- CASTLE BREACH ---
     if (h.x >= 20 * tileSize) {
       castleHp -= 1;
       audio.playCastleHit();
@@ -226,7 +280,7 @@ function updateHeroes() {
       continue;
     }
 
-    // 5. Hero Defeat
+    // --- HERO DEFEAT ---
     if (h.hp <= 0) {
       audio.playScream();
       gold += Math.floor(h.gold * (1 + shopUpgrades.MANA_HARVEST.level * 0.25));
