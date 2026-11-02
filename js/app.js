@@ -1,4 +1,4 @@
-// (Removed imports - variables are now accessed globally)
+// js/app.js
 
 let canvas, ctx;
 let tileSize = 40;
@@ -19,11 +19,24 @@ let hoverGridY = -1;
 let grid = [];
 let trapManager = null;
 
+// Game Entities State
+let heroes = [];
+let heroesToSpawn = [];
+let spawnTimer = 0;
+let spawnInterval = 90; // frames between hero spawns
+
 let shopUpgrades = {
   FORTRESS_WALLS: { level: 0, max: 5, baseCost: 150, name: 'Fortress Reinforcements', icon: '🏰', desc: '+10 Castle HP max & heal castle.' },
   MANA_HARVEST: { level: 0, max: 5, baseCost: 120, name: 'Mana Harvesting', icon: '🪙', desc: 'Gain +25% bonus Gold from all hero eliminations.' },
   TRAP_POWER: { level: 0, max: 5, baseCost: 200, name: 'Trap Overclocking', icon: '⚡', desc: 'Increase all trap damage by +20% globally.' },
   AUTO_REPAIR: { level: 0, max: 3, baseCost: 250, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 2 Castle HP after every wave.' }
+};
+
+// Hero Archetypes
+const HERO_TYPES = {
+  MARIO: { name: 'Super Hero', hp: 100, speed: 1.8, gold: 25, color: '#ef4444', jumpPower: -6.5, icon: '🏃' },
+  LUIGI: { name: 'Jumper Hero', hp: 80, speed: 2.2, gold: 35, color: '#22c55e', jumpPower: -8.0, icon: '🤸' },
+  TANK: { name: 'Armor Knight', hp: 250, speed: 1.1, gold: 50, color: '#64748b', jumpPower: -5.0, icon: '🛡️' }
 };
 
 function initGrid() {
@@ -44,6 +57,7 @@ function initGrid() {
 
   trapManager = new TrapManager(grid, GRID_ROWS, GRID_COLS);
 
+  // Preset initial gator pit
   grid[9][12] = null; grid[10][12] = { type: 'WATER_PIT' }; grid[11][12] = { type: 'WATER_PIT' };
   grid[9][13] = null; grid[10][13] = { type: 'WATER_PIT' }; grid[11][13] = { type: 'WATER_PIT' };
   grid[9][12] = { type: 'TRAP', trapId: 'GATOR', isRoot: true, rootX: 12, level: 1 };
@@ -67,6 +81,151 @@ function updateUI() {
   document.getElementById('shop-gold-display').textContent = `${gold} G`;
   
   renderTrapButtons();
+}
+
+function startWave() {
+  if (isWaveActive) return;
+  isWaveActive = true;
+  heroesToSpawn = [];
+  
+  // Build wave queue based on current wave counter
+  const heroCount = 4 + wave * 2;
+  for (let i = 0; i < heroCount; i++) {
+    if (i % 3 === 0) heroesToSpawn.push({ ...HERO_TYPES.LUIGI });
+    else if (i % 5 === 0 && wave >= 2) heroesToSpawn.push({ ...HERO_TYPES.TANK });
+    else heroesToSpawn.push({ ...HERO_TYPES.MARIO });
+  }
+
+  spawnTimer = 0;
+  audio.playCannon();
+}
+
+function spawnHero(heroData) {
+  const spawnGroundY = 9 * tileSize;
+  heroes.push({
+    ...heroData,
+    maxHp: heroData.hp,
+    x: 0,
+    y: spawnGroundY - tileSize,
+    vx: heroData.speed,
+    vy: 0,
+    width: tileSize * 0.7,
+    height: tileSize * 0.9,
+    isGrounded: true,
+    isCrouching: false,
+    jumpCooldown: 0
+  });
+}
+
+function updateHeroes() {
+  if (!isWaveActive) return;
+
+  // Handle Spawning Queue
+  if (heroesToSpawn.length > 0) {
+    spawnTimer += gameSpeed;
+    if (spawnTimer >= spawnInterval) {
+      spawnTimer = 0;
+      spawnHero(heroesToSpawn.shift());
+    }
+  }
+
+  const gravity = 0.35;
+  const groundY = 9 * tileSize;
+
+  for (let i = heroes.length - 1; i >= 0; i--) {
+    const h = heroes[i];
+    if (h.jumpCooldown > 0) h.jumpCooldown--;
+
+    // 1. Horizontal Movement & Obstacle AI (Lookahead)
+    const currentCol = Math.floor((h.x + h.width / 2) / tileSize);
+    const aheadCol = Math.floor((h.x + h.width + 10) / tileSize);
+    const aheadTile = grid[9]?.[aheadCol];
+    const overheadTile = grid[8]?.[currentCol];
+
+    // AI Jump Trigger: Obstacle/Trap Ahead on ground level
+    if (aheadTile && (aheadTile.solid || aheadTile.type === 'TRAP') && h.isGrounded && h.jumpCooldown <= 0) {
+      h.vy = h.jumpPower;
+      h.isGrounded = false;
+      h.jumpCooldown = 30;
+      audio.playSpring();
+    }
+
+    // AI Crouch Trigger: Low-hanging trap overhead
+    if (overheadTile && overheadTile.type === 'TRAP' && TRAP_TYPES[overheadTile.trapId]?.id === 'ANVIL') {
+      h.isCrouching = true;
+      h.height = tileSize * 0.5;
+    } else {
+      h.isCrouching = false;
+      h.height = tileSize * 0.9;
+    }
+
+    // Apply Velocity
+    h.x += h.vx * gameSpeed;
+    h.y += h.vy * gameSpeed;
+    h.vy += gravity * gameSpeed;
+
+    // Ground Collision
+    if (h.y + h.height >= groundY) {
+      h.y = groundY - h.height;
+      h.vy = 0;
+      h.isGrounded = true;
+    }
+
+    // 2. Trap Collisions & Damage
+    const gridX = Math.floor((h.x + h.width / 2) / tileSize);
+    const gridY = Math.floor((h.y + h.height / 2) / tileSize);
+    const tileUnder = grid[gridY]?.[gridX];
+
+    if (tileUnder && tileUnder.type === 'TRAP') {
+      const damage = 1.5 * gameSpeed;
+      h.hp -= damage;
+
+      if (tileUnder.trapId === 'SPIKES' || tileUnder.trapId === 'SAW') {
+        audio.playZap();
+      } else if (tileUnder.trapId === 'GATOR' || tileUnder.trapId === 'ACID') {
+        h.hp = 0; // Instant drop trap kill
+        audio.playGatorChomp();
+      }
+    }
+
+    // 3. Castle Breach / Reached Goal
+    if (h.x >= 20 * tileSize) {
+      castleHp -= 1;
+      audio.playCastleHit();
+      heroes.splice(i, 1);
+      updateUI();
+
+      if (castleHp <= 0) {
+        castleHp = 0;
+        isWaveActive = false;
+        alert("🏰 GAME OVER! The heroes breached your castle defense.");
+        tries++;
+        castleHp = maxCastleHp;
+        initGrid();
+        updateUI();
+      }
+      continue;
+    }
+
+    // 4. Hero Defeat
+    if (h.hp <= 0) {
+      audio.playScream();
+      gold += Math.floor(h.gold * (1 + shopUpgrades.MANA_HARVEST.level * 0.25));
+      kills++;
+      heroes.splice(i, 1);
+      updateUI();
+    }
+  }
+
+  // Check Wave Completion
+  if (isWaveActive && heroesToSpawn.length === 0 && heroes.length === 0) {
+    isWaveActive = false;
+    wave++;
+    if (shopUpgrades.AUTO_REPAIR.level > 0) {
+      castleHp = Math.min(maxCastleHp, castleHp + shopUpgrades.AUTO_REPAIR.level * 2);
+    }
+    updateUI();
+  }
 }
 
 function renderTrapButtons() {
@@ -150,11 +309,8 @@ function renderShop() {
 
 function handleCanvasClick(e) {
   const rect = canvas.getBoundingClientRect();
-  const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
-
-  const gx = Math.floor(mouseX / tileSize);
-  const gy = Math.floor(mouseY / tileSize);
+  const gx = Math.floor((e.clientX - rect.left) / tileSize);
+  const gy = Math.floor((e.clientY - rect.top) / tileSize);
 
   if (gx < 0 || gx >= GRID_COLS || gy < 0 || gy >= GRID_ROWS) return;
 
@@ -193,6 +349,7 @@ function handleCanvasRightClick(e) {
 function drawGame() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // 1. Draw Map Tiles & Traps
   for (let r = 0; r < GRID_ROWS; r++) {
     for (let c = 0; c < GRID_COLS; c++) {
       const x = c * tileSize;
@@ -228,11 +385,30 @@ function drawGame() {
     }
   }
 
+  // 2. Draw Active Heroes & Health Bars
+  heroes.forEach((h) => {
+    ctx.fillStyle = h.color;
+    ctx.fillRect(h.x, h.y, h.width, h.height);
+
+    ctx.font = `${Math.floor(tileSize * 0.5)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(h.icon, h.x + h.width / 2, h.y + h.height / 2);
+
+    // HP Bar Above Head
+    const hpRatio = Math.max(0, h.hp / h.maxHp);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(h.x, h.y - 8, h.width, 4);
+    ctx.fillStyle = hpRatio > 0.5 ? '#22c55e' : '#ef4444';
+    ctx.fillRect(h.x, h.y - 8, h.width * hpRatio, 4);
+  });
+
+  // 3. Draw Placement Hover Box
   if (hoverGridX >= 0 && hoverGridX < GRID_COLS && hoverGridY >= 0 && hoverGridY < GRID_ROWS) {
     ctx.fillStyle = isDemolishMode ? 'rgba(244, 63, 94, 0.3)' : 'rgba(245, 158, 11, 0.3)';
     ctx.fillRect(hoverGridX * tileSize, hoverGridY * tileSize, tileSize * (isDemolishMode ? 1 : selectedTrap.width), tileSize);
   }
 
+  updateHeroes();
   requestAnimationFrame(drawGame);
 }
 
@@ -263,14 +439,12 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('start-game-btn')?.addEventListener('click', () => {
     audio.init();
     document.getElementById('main-menu-overlay').classList.add('hidden');
+    startWave();
   });
 
   document.getElementById('start-wave-btn')?.addEventListener('click', () => {
     audio.init();
-    if (!isWaveActive) {
-      isWaveActive = true;
-      audio.playCannon();
-    }
+    startWave();
   });
 
   document.getElementById('sound-btn')?.addEventListener('click', () => {
@@ -286,7 +460,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('demolish-btn')?.addEventListener('click', () => {
     isDemolishMode = !isDemolishMode;
     document.getElementById('demolish-btn').classList.toggle('border-rose-500', isDemolishMode);
-    document.getElementById('demolish-btn').classList.toggle('bg-rose-950/60', isDemolishMode);
+    document.getElementById('demolish-btn').classList.toggle('border-rose-950/60', isDemolishMode);
     updateUI();
   });
 
