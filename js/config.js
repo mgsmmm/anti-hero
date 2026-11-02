@@ -15,7 +15,7 @@ const TRAP_TYPES = {
     name: 'Floor Spikes',
     icon: '🗡️',
     cost: 45,
-    desc: 'Sharp iron floor spikes dealing 50% max HP damage.',
+    desc: 'Sharp iron spikes. Instant 1-tap elimination on contact.',
     width: 1, height: 1
   },
   ANVIL: {
@@ -23,7 +23,7 @@ const TRAP_TYPES = {
     name: 'Ceiling Drop Anvil',
     icon: '🔨',
     cost: 60,
-    desc: 'Triggers & falls when a hero walks under it. Devastating crush damage.',
+    desc: 'Crushing ceiling trap. Instant 1-tap elimination.',
     width: 1, height: 1
   },
   GATOR: {
@@ -31,7 +31,7 @@ const TRAP_TYPES = {
     name: 'Water Gator Pit',
     icon: '🐊',
     cost: 75,
-    desc: 'Converts ground into a 2-tile water pit with hungry snapping alligators.',
+    desc: 'Water pit with snapping alligators. Instant 1-tap kill.',
     width: 2, height: 1
   },
   SAW: {
@@ -39,7 +39,7 @@ const TRAP_TYPES = {
     name: 'Spinning Sawblade',
     icon: '⚙️',
     cost: 85,
-    desc: 'High-speed motorized razor blade shredding ground & air heroes.',
+    desc: 'High-speed motorized razor blade. Instant 1-tap shred.',
     width: 1, height: 1
   },
   CANNON: {
@@ -55,7 +55,7 @@ const TRAP_TYPES = {
     name: 'Reverse Springboard',
     icon: '🌀',
     cost: 55,
-    desc: 'Launches heroes backward or straight up into ceiling spikes & anvils.',
+    desc: 'Launches heroes backward or straight up into ceiling hazards.',
     width: 1, height: 1
   },
   FREEZE: {
@@ -71,7 +71,7 @@ const TRAP_TYPES = {
     name: 'Poison Gas Vent',
     icon: '🧪',
     cost: 90,
-    desc: 'Emits continuous toxic AOE cloud damaging all passing heroes.',
+    desc: 'Emits toxic cloud. Instant 1-tap toxic elimination.',
     width: 1, height: 1
   },
   ACID: {
@@ -79,7 +79,7 @@ const TRAP_TYPES = {
     name: 'Acid Pitfall Trap',
     icon: '☣️',
     cost: 110,
-    desc: 'Instant kill pit trap dissolving any unwary hero falling inside.',
+    desc: 'Instant kill acid pit dissolving any hero falling inside.',
     width: 1, height: 1
   },
   TESLA: {
@@ -87,7 +87,7 @@ const TRAP_TYPES = {
     name: 'Tesla Tower',
     icon: '⚡',
     cost: 125,
-    desc: 'Zaps airborne and balloon-paragliding heroes in range with lightning.',
+    desc: 'Zaps airborne and elevated heroes in range with lightning.',
     width: 1, height: 1
   }
 };
