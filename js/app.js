@@ -23,7 +23,7 @@ let trapManager = null;
 let heroes = [];
 let heroesToSpawn = [];
 let spawnTimer = 0;
-let spawnInterval = 90; // frames between hero spawns
+let spawnInterval = 90;
 
 let shopUpgrades = {
   FORTRESS_WALLS: { level: 0, max: 5, baseCost: 150, name: 'Fortress Reinforcements', icon: '🏰', desc: '+10 Castle HP max & heal castle.' },
@@ -34,9 +34,9 @@ let shopUpgrades = {
 
 // Hero Archetypes
 const HERO_TYPES = {
-  MARIO: { name: 'Super Hero', hp: 100, speed: 1.8, gold: 25, color: '#ef4444', jumpPower: -6.5, icon: '🏃' },
-  LUIGI: { name: 'Jumper Hero', hp: 80, speed: 2.2, gold: 35, color: '#22c55e', jumpPower: -8.0, icon: '🤸' },
-  TANK: { name: 'Armor Knight', hp: 250, speed: 1.1, gold: 50, color: '#64748b', jumpPower: -5.0, icon: '🛡️' }
+  MARIO: { name: 'Super Hero', hp: 100, speed: 1.8, gold: 25, color: '#ef4444', jumpPower: -7.5, icon: '🏃' },
+  LUIGI: { name: 'Jumper Hero', hp: 80, speed: 2.2, gold: 35, color: '#22c55e', jumpPower: -9.0, icon: '🤸' },
+  TANK: { name: 'Armor Knight', hp: 250, speed: 1.1, gold: 50, color: '#64748b', jumpPower: -6.0, icon: '🛡️' }
 };
 
 function initGrid() {
@@ -57,7 +57,7 @@ function initGrid() {
 
   trapManager = new TrapManager(grid, GRID_ROWS, GRID_COLS);
 
-  // Preset initial gator pit
+  // Default starting water pit
   grid[9][12] = null; grid[10][12] = { type: 'WATER_PIT' }; grid[11][12] = { type: 'WATER_PIT' };
   grid[9][13] = null; grid[10][13] = { type: 'WATER_PIT' }; grid[11][13] = { type: 'WATER_PIT' };
   grid[9][12] = { type: 'TRAP', trapId: 'GATOR', isRoot: true, rootX: 12, level: 1 };
@@ -88,7 +88,6 @@ function startWave() {
   isWaveActive = true;
   heroesToSpawn = [];
   
-  // Build wave queue based on current wave counter
   const heroCount = 4 + wave * 2;
   for (let i = 0; i < heroCount; i++) {
     if (i % 3 === 0) heroesToSpawn.push({ ...HERO_TYPES.LUIGI });
@@ -117,10 +116,19 @@ function spawnHero(heroData) {
   });
 }
 
+// Check if grid coordinate is solid or a blocking brick wall
+function isTileSolid(gx, gy) {
+  if (gx < 0 || gx >= GRID_COLS || gy < 0 || gy >= GRID_ROWS) return false;
+  const tile = grid[gy]?.[gx];
+  if (!tile) return false;
+  if (tile.solid) return true;
+  if (tile.type === 'TRAP' && tile.trapId === 'BRICK') return true;
+  return false;
+}
+
 function updateHeroes() {
   if (!isWaveActive) return;
 
-  // Handle Spawning Queue
   if (heroesToSpawn.length > 0) {
     spawnTimer += gameSpeed;
     if (spawnTimer >= spawnInterval) {
@@ -129,66 +137,77 @@ function updateHeroes() {
     }
   }
 
-  const gravity = 0.35;
+  const gravity = 0.4;
   const groundY = 9 * tileSize;
 
   for (let i = heroes.length - 1; i >= 0; i--) {
     const h = heroes[i];
     if (h.jumpCooldown > 0) h.jumpCooldown--;
 
-    // 1. Horizontal Movement & Obstacle AI (Lookahead)
-    const currentCol = Math.floor((h.x + h.width / 2) / tileSize);
-    const aheadCol = Math.floor((h.x + h.width + 10) / tileSize);
-    const aheadTile = grid[9]?.[aheadCol];
-    const overheadTile = grid[8]?.[currentCol];
+    // 1. Horizontal Movement & Solid Wall Collisions
+    let nextX = h.x + h.vx * gameSpeed;
+    
+    // Check right edge bounding box for wall collision
+    const rightGridX = Math.floor((nextX + h.width) / tileSize);
+    const footGridY = Math.floor((h.y + h.height - 2) / tileSize);
+    const headGridY = Math.floor((h.y + 2) / tileSize);
 
-    // AI Jump Trigger: Obstacle/Trap Ahead on ground level
-    if (aheadTile && (aheadTile.solid || aheadTile.type === 'TRAP') && h.isGrounded && h.jumpCooldown <= 0) {
-      h.vy = h.jumpPower;
-      h.isGrounded = false;
-      h.jumpCooldown = 30;
-      audio.playSpring();
+    const hitWallAtFeet = isTileSolid(rightGridX, footGridY);
+    const hitWallAtHead = isTileSolid(rightGridX, headGridY);
+
+    if (hitWallAtFeet || hitWallAtHead) {
+      // BLOCK HERO MOVEMENT AT WALL EDGE
+      nextX = rightGridX * tileSize - h.width - 0.1;
+      
+      // Try jumping over the wall if grounded
+      if (h.isGrounded && h.jumpCooldown <= 0) {
+        h.vy = h.jumpPower;
+        h.isGrounded = false;
+        h.jumpCooldown = 25;
+        audio.playSpring();
+      }
     }
 
-    // AI Crouch Trigger: Low-hanging trap overhead
-    if (overheadTile && overheadTile.type === 'TRAP' && TRAP_TYPES[overheadTile.trapId]?.id === 'ANVIL') {
-      h.isCrouching = true;
-      h.height = tileSize * 0.5;
-    } else {
-      h.isCrouching = false;
-      h.height = tileSize * 0.9;
-    }
+    h.x = nextX;
 
-    // Apply Velocity
-    h.x += h.vx * gameSpeed;
+    // 2. Vertical Movement & Gravity
     h.y += h.vy * gameSpeed;
     h.vy += gravity * gameSpeed;
 
-    // Ground Collision
-    if (h.y + h.height >= groundY) {
+    // Check Landing on Solid Tiles or Brick Walls
+    const currentGridX = Math.floor((h.x + h.width / 2) / tileSize);
+    const checkFeetY = Math.floor((h.y + h.height) / tileSize);
+
+    if (isTileSolid(currentGridX, checkFeetY)) {
+      h.y = checkFeetY * tileSize - h.height;
+      h.vy = 0;
+      h.isGrounded = true;
+    } else if (h.y + h.height >= groundY) {
       h.y = groundY - h.height;
       h.vy = 0;
       h.isGrounded = true;
     }
 
-    // 2. Trap Collisions & Damage
+    // 3. Trap Collisions & Damage
     const gridX = Math.floor((h.x + h.width / 2) / tileSize);
     const gridY = Math.floor((h.y + h.height / 2) / tileSize);
     const tileUnder = grid[gridY]?.[gridX];
 
     if (tileUnder && tileUnder.type === 'TRAP') {
-      const damage = 1.5 * gameSpeed;
-      h.hp -= damage;
+      if (tileUnder.trapId !== 'BRICK') {
+        const damage = 1.5 * gameSpeed;
+        h.hp -= damage;
 
-      if (tileUnder.trapId === 'SPIKES' || tileUnder.trapId === 'SAW') {
-        audio.playZap();
-      } else if (tileUnder.trapId === 'GATOR' || tileUnder.trapId === 'ACID') {
-        h.hp = 0; // Instant drop trap kill
-        audio.playGatorChomp();
+        if (tileUnder.trapId === 'SPIKES' || tileUnder.trapId === 'SAW') {
+          audio.playZap();
+        } else if (tileUnder.trapId === 'GATOR' || tileUnder.trapId === 'ACID') {
+          h.hp = 0;
+          audio.playGatorChomp();
+        }
       }
     }
 
-    // 3. Castle Breach / Reached Goal
+    // 4. Castle Breach
     if (h.x >= 20 * tileSize) {
       castleHp -= 1;
       audio.playCastleHit();
@@ -207,7 +226,7 @@ function updateHeroes() {
       continue;
     }
 
-    // 4. Hero Defeat
+    // 5. Hero Defeat
     if (h.hp <= 0) {
       audio.playScream();
       gold += Math.floor(h.gold * (1 + shopUpgrades.MANA_HARVEST.level * 0.25));
@@ -217,7 +236,6 @@ function updateHeroes() {
     }
   }
 
-  // Check Wave Completion
   if (isWaveActive && heroesToSpawn.length === 0 && heroes.length === 0) {
     isWaveActive = false;
     wave++;
@@ -374,7 +392,7 @@ function drawGame() {
           ctx.fillRect(x, y, tileSize, tileSize);
         } else if (tile.type === 'TRAP' && tile.isRoot) {
           const tData = TRAP_TYPES[tile.trapId];
-          ctx.fillStyle = '#78350f';
+          ctx.fillStyle = tile.trapId === 'BRICK' ? '#b45309' : '#78350f';
           ctx.fillRect(x, y, tileSize * (tData ? tData.width : 1), tileSize);
           ctx.font = `${Math.floor(tileSize * 0.6)}px sans-serif`;
           ctx.textAlign = 'center';
@@ -385,16 +403,16 @@ function drawGame() {
     }
   }
 
-  // 2. Draw Active Heroes & Health Bars
+  // 2. Draw Active Heroes
   heroes.forEach((h) => {
     ctx.fillStyle = h.color;
     ctx.fillRect(h.x, h.y, h.width, h.height);
 
     ctx.font = `${Math.floor(tileSize * 0.5)}px sans-serif`;
     ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText(h.icon, h.x + h.width / 2, h.y + h.height / 2);
 
-    // HP Bar Above Head
     const hpRatio = Math.max(0, h.hp / h.maxHp);
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(h.x, h.y - 8, h.width, 4);
@@ -402,7 +420,7 @@ function drawGame() {
     ctx.fillRect(h.x, h.y - 8, h.width * hpRatio, 4);
   });
 
-  // 3. Draw Placement Hover Box
+  // 3. Placement Hover Box
   if (hoverGridX >= 0 && hoverGridX < GRID_COLS && hoverGridY >= 0 && hoverGridY < GRID_ROWS) {
     ctx.fillStyle = isDemolishMode ? 'rgba(244, 63, 94, 0.3)' : 'rgba(245, 158, 11, 0.3)';
     ctx.fillRect(hoverGridX * tileSize, hoverGridY * tileSize, tileSize * (isDemolishMode ? 1 : selectedTrap.width), tileSize);
