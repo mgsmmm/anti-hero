@@ -1,4 +1,4 @@
-export class AudioEngine {
+class AudioEngine {
   constructor() {
     this.ctx = null;
     this.enabled = true;
@@ -119,4 +119,4 @@ export class AudioEngine {
   }
 }
 
-export const audio = new AudioEngine();
+const audio = new AudioEngine();
