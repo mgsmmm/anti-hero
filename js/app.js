@@ -35,10 +35,11 @@ let shopUpgrades = {
   AUTO_REPAIR: { level: 0, max: 3, baseCost: 300, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 1 Castle HP after every wave.' }
 };
 
+// Balanced & Lower Jump Values
 const HERO_TYPES = {
-  MARIO: { name: 'Super Hero', hp: 100, speed: 2.5, gold: 15, color: '#ef4444', maxJumpPower: -7.2, icon: '🏃' },
-  LUIGI: { name: 'High Jumper', hp: 100, speed: 3.0, gold: 20, color: '#22c55e', maxJumpPower: -8.2, icon: '🤸' },
-  TANK: { name: 'Armor Knight', hp: 100, speed: 1.6, gold: 30, color: '#475569', maxJumpPower: -6.2, icon: '🛡️' }
+  MARIO: { name: 'Super Hero', hp: 100, speed: 2.5, gold: 15, color: '#ef4444', maxJumpPower: -5.5, icon: '🏃' },
+  LUIGI: { name: 'High Jumper', hp: 100, speed: 3.0, gold: 20, color: '#22c55e', maxJumpPower: -6.2, icon: '🤸' },
+  TANK: { name: 'Armor Knight', hp: 100, speed: 1.6, gold: 30, color: '#475569', maxJumpPower: -4.8, icon: '🛡️' }
 };
 
 function initStars() {
@@ -158,8 +159,15 @@ function resetBattle() {
 
 function startWave() {
   if (isWaveActive) return;
+  
+  const gameOverModal = document.getElementById('game-over-modal');
+  if (gameOverModal) {
+    gameOverModal.classList.add('opacity-0', 'pointer-events-none');
+  }
+
   isWaveActive = true;
   heroesToSpawn = [];
+  heroes = [];
   
   const heroCount = 50;
   for (let i = 0; i < heroCount; i++) {
@@ -235,11 +243,11 @@ function updateHeroes() {
     let wallHeight = 0;
     let trapDistance = -1;
 
-    for (let dist = 1; dist <= 5; dist++) {
+    for (let dist = 1; dist <= 3; dist++) {
       const lookGX = currentGX + dist * h.direction;
       
       let hCount = 0;
-      for (let checkY = 14; checkY >= 8; checkY--) {
+      for (let checkY = 14; checkY >= 10; checkY--) {
         if (isTileSolid(lookGX, checkY)) hCount++;
       }
       if (hCount > 0 && obstacleDistance === -1) {
@@ -254,11 +262,11 @@ function updateHeroes() {
       }
     }
 
-    // 1st Ground Jump
+    // 1st Ground Jump (Tamed Hop Impulse)
     if (h.isGrounded && h.jumpCooldown <= 0) {
       if ((obstacleDistance > 0 && obstacleDistance <= 2) || (trapDistance > 0 && trapDistance <= 2)) {
         let neededPower = h.maxJumpPower;
-        if (wallHeight === 1 && trapDistance === -1) neededPower *= 0.65;
+        if (wallHeight === 1 && trapDistance === -1) neededPower *= 0.70;
 
         h.vy = neededPower;
         h.isGrounded = false;
@@ -268,11 +276,11 @@ function updateHeroes() {
         addParticle(h.x + h.width / 2, h.y + h.height, '#94a3b8', 4);
       }
     }
-    // 2nd Double Jump
-    else if (!h.isGrounded && h.jumpCount === 1 && h.jumpCooldown <= 0 && h.vy > -1) {
-      const landingGX = Math.floor((h.x + h.vx * 12 * h.direction) / tileSize);
+    // 2nd Double Jump (Controlled Low Recovery Hop)
+    else if (!h.isGrounded && h.jumpCount === 1 && h.jumpCooldown <= 0 && h.vy > -0.5) {
+      const landingGX = Math.floor((h.x + h.vx * 8 * h.direction) / tileSize);
       if (isTileDangerousTrap(landingGX, 15) || isTileSolid(landingGX, 14) || trapDistance > 0) {
-        h.vy = h.maxJumpPower * 0.75;
+        h.vy = h.maxJumpPower * 0.55;
         h.jumpCount = 2;
         h.jumpCooldown = 20;
         audio.playSpring();
@@ -355,7 +363,7 @@ function updateHeroes() {
       }
     }
 
-    // Castle breach trigger on wider map (Col 35)
+    // Castle breach trigger (Col 35)
     if (h.x >= 35 * tileSize) {
       castleHp -= 2;
       audio.playCastleHit();
@@ -368,6 +376,7 @@ function updateHeroes() {
         castleHp = 0;
         updateUI();
         triggerGameOver();
+        return;
       }
       continue;
     }
