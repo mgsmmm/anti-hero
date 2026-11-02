@@ -1,93 +1,122 @@
-export const GRID_COLS = 24;
-export const GRID_ROWS = 12;
-
-export const TRAP_TYPES = {
-  BRICK: {
-    id: 'BRICK',
-    name: 'Brick Wall',
-    icon: '🧱',
-    cost: 30,
-    desc: 'Solid brick obstacle. Blocks paths, forcing heroes to jump into traps.',
-    width: 1, height: 1
-  },
-  SPIKES: {
-    id: 'SPIKES',
-    name: 'Floor Spikes',
-    icon: '🗡️',
-    cost: 45,
-    desc: 'Sharp iron floor spikes dealing continuous piercing damage.',
-    width: 1, height: 1
-  },
-  ANVIL: {
-    id: 'ANVIL',
-    name: 'Ceiling Drop Anvil',
-    icon: '🔨',
-    cost: 60,
-    desc: 'Triggers & falls when a hero walks under it. Devastating crush damage.',
-    width: 1, height: 1
-  },
-  GATOR: {
-    id: 'GATOR',
-    name: 'Water Gator Pit',
-    icon: '🐊',
-    cost: 75,
-    desc: 'Converts ground into a 2-tile water pit with a hungry snapping alligator.',
-    width: 2, height: 1
-  },
-  SAW: {
-    id: 'SAW',
-    name: 'Spinning Sawblade',
-    icon: '⚙️',
-    cost: 85,
-    desc: 'High-speed motorized razor blade shredding ground & air heroes.',
-    width: 1, height: 1
-  },
-  CANNON: {
-    id: 'CANNON',
-    name: 'Fire Sling Cannon',
-    icon: '💣',
-    cost: 100,
-    desc: 'Artillery cannon launching explosive fireballs horizontally left.',
-    width: 1, height: 1
-  },
-  TRAMPOLINE: {
-    id: 'TRAMPOLINE',
-    name: 'Reverse Springboard',
-    icon: '🌀',
-    cost: 55,
-    desc: 'Launches heroes backward or straight up into ceiling spikes & anvils.',
-    width: 1, height: 1
-  },
-  FREEZE: {
-    id: 'FREEZE',
-    name: 'Freeze Ray / Ice Floor',
-    icon: '🧊',
-    cost: 80,
-    desc: 'Freezes heroes in place for 2 seconds & makes ground slippery.',
-    width: 1, height: 1
-  },
-  POISON: {
-    id: 'POISON',
-    name: 'Poison Gas Vent',
-    icon: '🧪',
-    cost: 90,
-    desc: 'Emits continuous toxic AOE cloud damaging all passing heroes.',
-    width: 1, height: 1
-  },
-  ACID: {
-    id: 'ACID',
-    name: 'Acid Pitfall Trap',
-    icon: '☣️',
-    cost: 110,
-    desc: 'Instant kill pit trap dissolving any unwary hero falling inside.',
-    width: 1, height: 1
-  },
-  TESLA: {
-    id: 'TESLA',
-    name: 'Tesla Tower',
-    icon: '⚡',
-    cost: 125,
-    desc: 'Zaps airborne and balloon-paragliding heroes in range with high-voltage lightning.',
-    width: 1, height: 1
+export class AudioEngine {
+  constructor() {
+    this.ctx = null;
+    this.enabled = true;
   }
-};
+
+  init() {
+    if (!this.ctx) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AudioContext();
+    } else if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  playBuild() {
+    if (!this.enabled || !this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(260, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(650, this.ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(); osc.stop(this.ctx.currentTime + 0.08);
+  }
+
+  playUpgrade() {
+    if (!this.enabled || !this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+  }
+
+  playCannon() {
+    if (!this.enabled || !this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.2);
+    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(); osc.stop(this.ctx.currentTime + 0.2);
+  }
+
+  playZap() {
+    if (!this.enabled || !this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(900, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(); osc.stop(this.ctx.currentTime + 0.12);
+  }
+
+  playScream() {
+    if (!this.enabled || !this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+  }
+
+  playGatorChomp() {
+    if (!this.enabled || !this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+    osc.frequency.setValueAtTime(260, this.ctx.currentTime + 0.05);
+    osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.18);
+    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.18);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(); osc.stop(this.ctx.currentTime + 0.18);
+  }
+
+  playSpring() {
+    if (!this.enabled || !this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+  }
+
+  playCastleHit() {
+    if (!this.enabled || !this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(110, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(); osc.stop(this.ctx.currentTime + 0.3);
+  }
+}
+
+export const audio = new AudioEngine();
