@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;600;800&display=swap');
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body {
   font-family: 'Outfit', sans-serif;
   user-select: none;
@@ -16,7 +20,7 @@ canvas {
   image-rendering: pixelated;
 }
 
-/* Custom scrollbar for trap drawer */
+/* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -31,14 +35,15 @@ canvas {
 
 .trap-card {
   transition: all 0.15s ease;
+  cursor: pointer;
 }
 .trap-card:hover:not(.disabled) {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
 }
 .trap-card.selected {
-  border-color: #f59e0b;
-  background-color: rgba(245, 158, 11, 0.18);
+  border-color: #f59e0b !important;
+  background-color: rgba(245, 158, 11, 0.18) !important;
   box-shadow: 0 0 0 2px #f59e0b;
 }
 .trap-card.disabled {
