@@ -32,11 +32,11 @@ let shopUpgrades = {
   AUTO_REPAIR: { level: 0, max: 3, baseCost: 250, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 2 Castle HP after every wave.' }
 };
 
-// Advanced Hero Archetypes
+// Next-Gen Hero Archetypes with Enhanced Behaviors
 const HERO_TYPES = {
-  MARIO: { name: 'Super Hero', hp: 120, speed: 2.0, gold: 25, color: '#ef4444', maxJumpPower: -8.5, icon: '🏃', intelligence: 0.9 },
-  LUIGI: { name: 'High Jumper', hp: 90, speed: 2.4, gold: 35, color: '#22c55e', maxJumpPower: -10.5, icon: '🤸', intelligence: 1.0 },
-  TANK: { name: 'Armor Knight', hp: 280, speed: 1.2, gold: 50, color: '#64748b', maxJumpPower: -7.0, icon: '🛡️', intelligence: 0.7 }
+  MARIO: { name: 'Super Hero', hp: 120, speed: 2.0, gold: 25, color: '#ef4444', maxJumpPower: -8.5, icon: '🏃', canDoubleJump: false },
+  LUIGI: { name: 'High Jumper', hp: 90, speed: 2.4, gold: 35, color: '#22c55e', maxJumpPower: -10.0, icon: '🤸', canDoubleJump: true },
+  TANK: { name: 'Armor Knight', hp: 280, speed: 1.2, gold: 50, color: '#64748b', maxJumpPower: -7.0, icon: '🛡️', canDoubleJump: false }
 };
 
 function initGrid() {
@@ -112,8 +112,8 @@ function spawnHero(heroData) {
     width: tileSize * 0.7,
     height: tileSize * 0.9,
     isGrounded: true,
-    isCrouching: false,
     jumpCooldown: 0,
+    hasDoubleJumped: false,
     stuckTimer: 0,
     lastHitTrapTimer: 0
   });
@@ -149,49 +149,62 @@ function updateHeroes() {
 
     const currentGX = Math.floor((h.x + h.width / 2) / tileSize);
 
-    // --- AI RAYCAST LOOKAHEAD ---
-    if (h.isGrounded && h.jumpCooldown <= 0) {
-      let obstacleDistance = -1;
-      let wallHeight = 0;
-      let hasHazardAhead = false;
+    // --- TIER 2 ADVANCED AI LOOKAHEAD & RECOVERY ---
+    let obstacleDistance = -1;
+    let wallHeight = 0;
+    let hasHazardAhead = false;
 
-      for (let dist = 1; dist <= 4; dist++) {
-        const lookGX = currentGX + dist * h.direction;
-        
-        let hCount = 0;
-        for (let checkY = 8; checkY >= 4; checkY--) {
-          if (isTileSolid(lookGX, checkY)) hCount++;
-        }
-
-        const tileAhead = grid[9]?.[lookGX];
-        if (tileAhead && (tileAhead.type === 'WATER_PIT' || (tileAhead.type === 'TRAP' && tileAhead.trapId !== 'BRICK'))) {
-          hasHazardAhead = true;
-        }
-
-        if (hCount > 0) {
-          obstacleDistance = dist;
-          wallHeight = hCount;
-          break;
-        }
+    for (let dist = 1; dist <= 4; dist++) {
+      const lookGX = currentGX + dist * h.direction;
+      let hCount = 0;
+      for (let checkY = 8; checkY >= 4; checkY--) {
+        if (isTileSolid(lookGX, checkY)) hCount++;
       }
 
+      const tileAhead = grid[9]?.[lookGX];
+      if (tileAhead && (tileAhead.type === 'WATER_PIT' || (tileAhead.type === 'TRAP' && tileAhead.trapId !== 'BRICK'))) {
+        hasHazardAhead = true;
+      }
+
+      if (hCount > 0) {
+        obstacleDistance = dist;
+        wallHeight = hCount;
+        break;
+      }
+    }
+
+    // Ground Jump Execution
+    if (h.isGrounded && h.jumpCooldown <= 0) {
       if (obstacleDistance > 0 && obstacleDistance <= 2) {
         let neededPower = h.maxJumpPower;
         if (wallHeight === 1) neededPower *= 0.75;
         
         h.vy = neededPower;
         h.isGrounded = false;
+        h.hasDoubleJumped = false;
         h.jumpCooldown = 28;
         audio.playSpring();
       } else if (hasHazardAhead && (obstacleDistance === -1 || obstacleDistance > 1)) {
         h.vy = h.maxJumpPower * 0.9;
         h.isGrounded = false;
+        h.hasDoubleJumped = false;
         h.jumpCooldown = 35;
+        audio.playSpring();
+      }
+    } 
+    // Mid-Air Double Jump Emergency Recovery (Luigi Class)
+    else if (!h.isGrounded && h.canDoubleJump && !h.hasDoubleJumped && h.vy > 0) {
+      const landingGX = Math.floor((h.x + h.vx * 15) / tileSize);
+      const landingTile = grid[9]?.[landingGX];
+
+      if (landingTile && (landingTile.type === 'WATER_PIT' || landingTile.type === 'TRAP')) {
+        h.vy = h.maxJumpPower * 0.85;
+        h.hasDoubleJumped = true;
         audio.playSpring();
       }
     }
 
-    // --- HORIZONTAL MOVEMENT & WALL COLLISION ---
+    // --- HORIZONTAL MOVEMENT & WALL DYNAMICS ---
     let moveSpeed = h.speed * h.direction;
     let nextX = h.x + moveSpeed * gameSpeed;
     
@@ -208,7 +221,15 @@ function updateHeroes() {
       else nextX = (rightGridX + 1) * tileSize + 0.1;
 
       h.stuckTimer++;
-      if (h.stuckTimer > 45) {
+      
+      // Tank Wall Bashing Logic: Demolishes single brick walls after sustained hits
+      if (h.name === 'Armor Knight' && h.stuckTimer > 60) {
+        trapManager.demolishTrap(rightGridX, footGridY);
+        audio.playBuild();
+        h.stuckTimer = 0;
+      }
+      // Smart Turn-around when blocked
+      else if (h.stuckTimer > 45) {
         h.direction *= -1;
         h.stuckTimer = 0;
       }
@@ -229,10 +250,12 @@ function updateHeroes() {
       h.y = checkFeetY * tileSize - h.height;
       h.vy = 0;
       h.isGrounded = true;
+      h.hasDoubleJumped = false;
     } else if (h.y + h.height >= groundY) {
       h.y = groundY - h.height;
       h.vy = 0;
       h.isGrounded = true;
+      h.hasDoubleJumped = false;
     }
 
     // --- TRAP COLLISIONS (50% MAX HP DAMAGE PER HIT) ---
@@ -242,9 +265,8 @@ function updateHeroes() {
 
     if (tileUnder && tileUnder.type === 'TRAP') {
       if (tileUnder.trapId !== 'BRICK' && h.lastHitTrapTimer <= 0) {
-        // Deal 50% of Maximum Health per trap contact
         h.hp -= h.maxHp * 0.5;
-        h.lastHitTrapTimer = 25; // Invulnerability window frames between ticks
+        h.lastHitTrapTimer = 25;
 
         if (tileUnder.trapId === 'SPIKES' || tileUnder.trapId === 'SAW') {
           audio.playZap();
@@ -502,13 +524,11 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   canvas.addEventListener('contextmenu', handleCanvasRightClick);
 
-  // START GAME BUTTON: Hides main menu overlay into Prep Phase (Does NOT start wave)
   document.getElementById('start-game-btn')?.addEventListener('click', () => {
     audio.init();
     document.getElementById('main-menu-overlay').classList.add('hidden');
   });
 
-  // START WAVE BUTTON: Explicitly launches hero wave
   document.getElementById('start-wave-btn')?.addEventListener('click', () => {
     audio.init();
     startWave();
