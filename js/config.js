@@ -1,5 +1,5 @@
-const GRID_COLS = 24;
-const GRID_ROWS = 12;
+const GRID_COLS = 40;
+const GRID_ROWS = 18;
 
 const TRAP_TYPES = {
   BRICK: {
