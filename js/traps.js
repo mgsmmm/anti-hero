@@ -7,16 +7,23 @@ export class TrapManager {
     this.GRID_COLS = cols;
   }
 
-  placeTrap(x, y, trapType) {
+  canPlaceTrap(x, y, trapType) {
     if (x < 0 || y < 0 || x >= this.GRID_COLS || y >= this.GRID_ROWS) return false;
     
-    // Check width constraint for multi-tile traps (e.g. Gator Pit)
-    if (trapType.width > 1) {
-      if (x + trapType.width > this.GRID_COLS) return false;
-      for (let i = 0; i < trapType.width; i++) {
-        if (this.grid[y][x + i] && this.grid[y][x + i].type === 'TRAP') return false;
+    // Check footprint
+    for (let i = 0; i < trapType.width; i++) {
+      const targetX = x + i;
+      if (targetX >= this.GRID_COLS) return false;
+      const cell = this.grid[y][targetX];
+      if (cell && (cell.type === 'TRAP' || cell.type === 'CASTLE_TILE')) {
+        return false;
       }
     }
+    return true;
+  }
+
+  placeTrap(x, y, trapType) {
+    if (!this.canPlaceTrap(x, y, trapType)) return false;
 
     this.grid[y][x] = {
       type: 'TRAP',
@@ -48,7 +55,8 @@ export class TrapManager {
     const rootX = tile.rootX;
     const trapData = TRAP_TYPES[tile.trapId];
     
-    for (let i = 0; i < (trapData ? trapData.width : 1); i++) {
+    const width = trapData ? trapData.width : 1;
+    for (let i = 0; i < width; i++) {
       if (this.grid[y][rootX + i]) {
         this.grid[y][rootX + i] = null;
       }
