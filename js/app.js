@@ -1,9 +1,9 @@
 // js/app.js
 
 let canvas, ctx;
-let tileSize = 40;
+let tileSize = 32;
 
-let gold = 200;
+let gold = 300;
 let castleHp = 10;
 let maxCastleHp = 10;
 let wave = 1;
@@ -25,7 +25,7 @@ let particles = [];
 let floatingTexts = [];
 let stars = [];
 let spawnTimer = 0;
-let spawnInterval = 25; // 50 heroes per wave fast spawn rate
+let spawnInterval = 25;
 let animTimer = 0;
 
 let shopUpgrades = {
@@ -35,7 +35,6 @@ let shopUpgrades = {
   AUTO_REPAIR: { level: 0, max: 3, baseCost: 300, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 1 Castle HP after every wave.' }
 };
 
-// Lowered Jump Powers (Realistic hops)
 const HERO_TYPES = {
   MARIO: { name: 'Super Hero', hp: 100, speed: 2.5, gold: 15, color: '#ef4444', maxJumpPower: -7.2, icon: '🏃' },
   LUIGI: { name: 'High Jumper', hp: 100, speed: 3.0, gold: 20, color: '#22c55e', maxJumpPower: -8.2, icon: '🤸' },
@@ -44,10 +43,10 @@ const HERO_TYPES = {
 
 function initStars() {
   stars = [];
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 60; i++) {
     stars.push({
-      x: Math.random() * 1200,
-      y: Math.random() * 300,
+      x: Math.random() * 2000,
+      y: Math.random() * 500,
       size: Math.random() * 2 + 1,
       alpha: Math.random()
     });
@@ -57,32 +56,35 @@ function initStars() {
 function initGrid() {
   grid = Array(GRID_ROWS).fill(null).map(() => Array(GRID_COLS).fill(null));
 
+  const groundRow = 15;
+  const castleStartCol = 35;
+
   for (let c = 0; c < GRID_COLS; c++) {
-    if (c < 20) {
-      grid[9][c] = { type: 'GROUND_TILE', solid: true };
-      grid[10][c] = { type: 'DIRT_TILE', solid: true };
-      grid[11][c] = { type: 'DIRT_TILE', solid: true };
+    if (c < castleStartCol) {
+      grid[groundRow][c] = { type: 'GROUND_TILE', solid: true };
+      grid[groundRow + 1][c] = { type: 'DIRT_TILE', solid: true };
+      grid[groundRow + 2][c] = { type: 'DIRT_TILE', solid: true };
     } else {
-      grid[8][c] = { type: 'CASTLE_TILE', solid: true };
-      grid[9][c] = { type: 'CASTLE_TILE', solid: true };
-      grid[10][c] = { type: 'CASTLE_TILE', solid: true };
-      grid[11][c] = { type: 'CASTLE_TILE', solid: true };
+      for (let r = groundRow - 2; r < GRID_ROWS; r++) {
+        grid[r][c] = { type: 'CASTLE_TILE', solid: true };
+      }
     }
   }
 
   trapManager = new TrapManager(grid, GRID_ROWS, GRID_COLS);
 
-  grid[9][12] = null; grid[10][12] = { type: 'WATER_PIT' }; grid[11][12] = { type: 'WATER_PIT' };
-  grid[9][13] = null; grid[10][13] = { type: 'WATER_PIT' }; grid[11][13] = { type: 'WATER_PIT' };
-  grid[9][12] = { type: 'TRAP', trapId: 'GATOR', isRoot: true, rootX: 12, level: 1 };
-  grid[9][13] = { type: 'TRAP', trapId: 'GATOR', isRoot: false, rootX: 12, level: 1 };
+  // Preset Gator Pit on wider map
+  grid[groundRow][16] = null; grid[groundRow + 1][16] = { type: 'WATER_PIT' }; grid[groundRow + 2][16] = { type: 'WATER_PIT' };
+  grid[groundRow][17] = null; grid[groundRow + 1][17] = { type: 'WATER_PIT' }; grid[groundRow + 2][17] = { type: 'WATER_PIT' };
+  grid[groundRow][16] = { type: 'TRAP', trapId: 'GATOR', isRoot: true, rootX: 16, level: 1 };
+  grid[groundRow][17] = { type: 'TRAP', trapId: 'GATOR', isRoot: false, rootX: 16, level: 1 };
 }
 
 function resizeCanvas() {
   if (!canvas || !canvas.parentElement) return;
   canvas.width = canvas.parentElement.clientWidth;
   canvas.height = canvas.parentElement.clientHeight;
-  tileSize = Math.floor(Math.min(canvas.width / GRID_COLS, canvas.height / GRID_ROWS));
+  tileSize = Math.max(24, Math.floor(Math.min(canvas.width / GRID_COLS, canvas.height / GRID_ROWS)));
   initStars();
 }
 
@@ -132,7 +134,6 @@ function triggerGameOver() {
   }
 }
 
-// FULL STATE RESET FOR RETRY & MAIN MENU
 function resetBattle() {
   isWaveActive = false;
   heroes = [];
@@ -142,7 +143,7 @@ function resetBattle() {
   spawnTimer = 0;
   
   castleHp = maxCastleHp;
-  gold = 200;
+  gold = 300;
   wave = 1;
   kills = 0;
 
@@ -160,7 +161,6 @@ function startWave() {
   isWaveActive = true;
   heroesToSpawn = [];
   
-  // Exactly 50 heroes per wave
   const heroCount = 50;
   for (let i = 0; i < heroCount; i++) {
     if (i % 3 === 0) heroesToSpawn.push({ ...HERO_TYPES.LUIGI });
@@ -173,7 +173,7 @@ function startWave() {
 }
 
 function spawnHero(heroData) {
-  const spawnGroundY = 9 * tileSize;
+  const spawnGroundY = 15 * tileSize;
   heroes.push({
     ...heroData,
     maxHp: heroData.hp,
@@ -222,7 +222,7 @@ function updateHeroes() {
   }
 
   const gravity = 0.40;
-  const groundY = 9 * tileSize;
+  const groundY = 15 * tileSize;
 
   for (let i = heroes.length - 1; i >= 0; i--) {
     const h = heroes[i];
@@ -235,11 +235,11 @@ function updateHeroes() {
     let wallHeight = 0;
     let trapDistance = -1;
 
-    for (let dist = 1; dist <= 4; dist++) {
+    for (let dist = 1; dist <= 5; dist++) {
       const lookGX = currentGX + dist * h.direction;
       
       let hCount = 0;
-      for (let checkY = 8; checkY >= 4; checkY--) {
+      for (let checkY = 14; checkY >= 8; checkY--) {
         if (isTileSolid(lookGX, checkY)) hCount++;
       }
       if (hCount > 0 && obstacleDistance === -1) {
@@ -247,14 +247,14 @@ function updateHeroes() {
         wallHeight = hCount;
       }
 
-      if (isTileDangerousTrap(lookGX, 9) || isTileDangerousTrap(lookGX, 8)) {
+      if (isTileDangerousTrap(lookGX, 15) || isTileDangerousTrap(lookGX, 14)) {
         if (trapDistance === -1) {
           trapDistance = dist;
         }
       }
     }
 
-    // Ground Jump Execution
+    // 1st Ground Jump
     if (h.isGrounded && h.jumpCooldown <= 0) {
       if ((obstacleDistance > 0 && obstacleDistance <= 2) || (trapDistance > 0 && trapDistance <= 2)) {
         let neededPower = h.maxJumpPower;
@@ -268,10 +268,10 @@ function updateHeroes() {
         addParticle(h.x + h.width / 2, h.y + h.height, '#94a3b8', 4);
       }
     }
-    // Mid-air Double Jump (Controlled 2nd Hop)
+    // 2nd Double Jump
     else if (!h.isGrounded && h.jumpCount === 1 && h.jumpCooldown <= 0 && h.vy > -1) {
       const landingGX = Math.floor((h.x + h.vx * 12 * h.direction) / tileSize);
-      if (isTileDangerousTrap(landingGX, 9) || isTileSolid(landingGX, 8) || trapDistance > 0) {
+      if (isTileDangerousTrap(landingGX, 15) || isTileSolid(landingGX, 14) || trapDistance > 0) {
         h.vy = h.maxJumpPower * 0.75;
         h.jumpCount = 2;
         h.jumpCooldown = 20;
@@ -332,7 +332,7 @@ function updateHeroes() {
       h.jumpCount = 0;
     }
 
-    // STRICT 2-HIT TRAP DAMAGE (50% MAX HP DAMAGE PER CONTACT)
+    // STRICT 2-HIT TRAP DAMAGE (50% MAX HP DAMAGE)
     const gridX = Math.floor((h.x + h.width / 2) / tileSize);
     const gridY = Math.floor((h.y + h.height / 2) / tileSize);
     const tileUnder = grid[gridY]?.[gridX];
@@ -355,7 +355,8 @@ function updateHeroes() {
       }
     }
 
-    if (h.x >= 20 * tileSize) {
+    // Castle breach trigger on wider map (Col 35)
+    if (h.x >= 35 * tileSize) {
       castleHp -= 2;
       audio.playCastleHit();
       addFloatingText(`-2 HP`, h.x, h.y - 15, '#ef4444');
@@ -428,7 +429,7 @@ function drawGame() {
 
   ctx.fillStyle = 'rgba(99, 102, 241, 0.03)';
   const fogX = (Math.sin(animTimer * 0.2) * 50);
-  ctx.fillRect(fogX, 100, canvas.width + 100, 150);
+  ctx.fillRect(fogX, 100, canvas.width + 100, 200);
 
   for (let r = 0; r < GRID_ROWS; r++) {
     for (let c = 0; c < GRID_COLS; c++) {
@@ -436,7 +437,7 @@ function drawGame() {
       const y = r * tileSize;
       const tile = grid[r][c];
 
-      ctx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+      ctx.strokeStyle = 'rgba(51, 65, 85, 0.3)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x, y, tileSize, tileSize);
 
@@ -509,9 +510,9 @@ function drawGame() {
 
     const hpRatio = Math.max(0, h.hp / h.maxHp);
     ctx.fillStyle = '#0f172a';
-    ctx.fillRect(h.x, h.y - 9, h.width, 5);
+    ctx.fillRect(h.x, h.y - 8, h.width, 4);
     ctx.fillStyle = hpRatio > 0.5 ? '#22c55e' : '#ef4444';
-    ctx.fillRect(h.x, h.y - 9, h.width * hpRatio, 5);
+    ctx.fillRect(h.x, h.y - 8, h.width * hpRatio, 4);
   });
 
   particles.forEach((p) => {
