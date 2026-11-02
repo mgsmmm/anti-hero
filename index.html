@@ -5,56 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Super Anti-Mario: Trap Master</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;600;800&display=swap');
-
-    body {
-      font-family: 'Outfit', sans-serif;
-      user-select: none;
-      background-color: #090d16;
-      color: #f8fafc;
-      overflow: hidden;
-    }
-
-    .pixel-font {
-      font-family: 'Press Start 2P', cursive;
-    }
-
-    canvas {
-      image-rendering: pixelated;
-    }
-
-    /* Custom scrollbar for trap drawer */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #0f172a;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #334155;
-      border-radius: 4px;
-    }
-
-    .trap-card {
-      transition: all 0.15s ease;
-    }
-    .trap-card:hover:not(.disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
-    }
-    .trap-card.selected {
-      border-color: #f59e0b;
-      background-color: rgba(245, 158, 11, 0.18);
-      box-shadow: 0 0 0 2px #f59e0b;
-    }
-    .trap-card.disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-      filter: grayscale(0.85);
-    }
-  </style>
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="flex flex-col h-screen w-screen bg-slate-950 text-slate-100">
 
@@ -69,7 +20,6 @@
 
     <!-- Stats Bar -->
     <div class="flex items-center space-x-2 md:space-x-4 text-xs md:text-sm font-semibold">
-      <!-- Mana / Gold -->
       <div class="flex items-center space-x-1.5 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
         <span class="text-base sm:text-lg">🪙</span>
         <div>
@@ -78,7 +28,6 @@
         </div>
       </div>
 
-      <!-- Castle Health -->
       <div class="flex items-center space-x-1.5 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
         <span class="text-base sm:text-lg">🏰</span>
         <div>
@@ -92,7 +41,6 @@
         </div>
       </div>
 
-      <!-- Wave & Kills -->
       <div class="flex items-center space-x-2 sm:space-x-3">
         <div class="bg-slate-900 px-2 py-1 rounded-lg border border-slate-800">
           <div class="text-[9px] text-slate-400 font-bold uppercase leading-none">Wave</div>
@@ -128,18 +76,16 @@
 
   <!-- Main Game Container -->
   <main class="flex-1 flex flex-col lg:flex-row relative overflow-hidden">
-    
-    <!-- Canvas Container -->
     <div class="flex-1 relative bg-slate-950 flex items-center justify-center overflow-hidden">
       <canvas id="gameCanvas" class="w-full h-full cursor-crosshair"></canvas>
-      
-      <!-- MAIN MENU OVERLAY -->
+
+      <!-- Main Menu Overlay -->
       <div id="main-menu-overlay" class="absolute inset-0 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center z-30 transition-all duration-300">
         <div class="bg-slate-900 border-2 border-amber-500/80 p-6 md:p-10 rounded-2xl max-w-lg w-11/12 text-center shadow-2xl flex flex-col items-center gap-4">
           <div class="text-4xl">👑 😈 🏰</div>
           <h1 class="pixel-font text-xl md:text-2xl text-amber-400 tracking-wider">SUPER ANTI-MARIO</h1>
           <p class="pixel-font text-[10px] text-red-500 uppercase tracking-widest">Dungeon Master & Level Architect</p>
-          
+
           <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-left text-xs text-slate-300 space-y-2 w-full my-1">
             <div class="font-bold text-amber-400 uppercase text-[11px] mb-1">📜 VILLAIN'S ORDERS:</div>
             <div>• <strong class="text-white">Build Deadly Traps:</strong> Lay down 11 unique traps (Spikes, Gators, Saws, Acid, Cannons, Tesla).</div>
@@ -153,7 +99,7 @@
         </div>
       </div>
 
-      <!-- IN-GAME VILLAIN SHOP MODAL -->
+      <!-- Villain Shop Modal -->
       <div id="shop-modal" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center z-25 transition-all duration-300 opacity-0 pointer-events-none">
         <div class="bg-slate-900 border-2 border-amber-500/70 p-5 md:p-6 rounded-2xl max-w-lg w-11/12 max-h-[85vh] flex flex-col justify-between shadow-2xl">
           <div>
@@ -164,13 +110,8 @@
               </div>
               <button id="close-shop-btn" class="text-slate-400 hover:text-white font-bold text-lg px-2">✕</button>
             </div>
-            
             <div class="text-xs text-slate-400 mb-3">Spend your Mana Gold on permanent upgrades and castle enhancements!</div>
-
-            <!-- Shop Items Grid -->
-            <div class="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1" id="shop-items-container">
-              <!-- Dynamically Populated Shop Items -->
-            </div>
+            <div class="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1" id="shop-items-container"></div>
           </div>
 
           <div class="pt-3 border-t border-slate-800 flex justify-between items-center text-xs">
@@ -195,27 +136,21 @@
         </div>
       </div>
 
-      <!-- Quick Hint Float -->
       <div id="hint-box" class="absolute top-3 left-3 bg-slate-900/90 border border-slate-800 px-3 py-1 rounded-md text-[11px] text-slate-300 pointer-events-none backdrop-blur-sm shadow hidden sm:block">
         💡 Click on tiles to build selected trap. Right-click to sell. Click existing traps to upgrade!
       </div>
     </div>
 
-    <!-- Trap Selection & Upgrade Sidebar -->
+    <!-- Trap Sidebar -->
     <aside class="w-full lg:w-96 bg-slate-950 border-t lg:border-t-0 lg:border-l border-slate-800 p-2.5 sm:p-4 flex flex-col justify-between shrink-0 z-10 max-h-[38vh] lg:max-h-none overflow-y-auto">
       <div>
         <div class="flex items-center justify-between mb-2">
           <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Trap Arsenal (11 Types)</span>
           <span class="text-[10px] text-amber-400 font-mono">Build & Upgrade</span>
         </div>
-
-        <!-- Trap Cards Grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2" id="trap-buttons-list">
-          <!-- Dynamically Populated -->
-        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2" id="trap-buttons-list"></div>
       </div>
 
-      <!-- Selected Trap Info / Upgrade Control -->
       <div class="mt-3 pt-2.5 border-t border-slate-800">
         <div id="selected-trap-info" class="bg-slate-900 border border-slate-800 p-2 rounded-lg mb-2 text-xs">
           <div class="flex items-center justify-between">
@@ -234,297 +169,7 @@
     </aside>
   </main>
 
-  <script>
-    /* ==========================================================================
-       SYNTHESIZED WEB AUDIO ENGINE
-       ========================================================================== */
-    class AudioEngine {
-      constructor() {
-        this.ctx = null;
-        this.enabled = true;
-      }
-
-      init() {
-        if (!this.ctx) {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          this.ctx = new AudioContext();
-        }
-      }
-
-      playBuild() {
-        if (!this.enabled || !this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(260, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(650, this.ctx.currentTime + 0.08);
-        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.08);
-      }
-
-      playUpgrade() {
-        if (!this.enabled || !this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(400, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.15);
-      }
-
-      playCannon() {
-        if (!this.enabled || !this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.2);
-        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.2);
-      }
-
-      playZap() {
-        if (!this.enabled || !this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(900, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.12);
-        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.12);
-      }
-
-      playScream() {
-        if (!this.enabled || !this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(450, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.15);
-      }
-
-      playGatorChomp() {
-        if (!this.enabled || !this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(120, this.ctx.currentTime);
-        osc.frequency.setValueAtTime(260, this.ctx.currentTime + 0.05);
-        osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.18);
-        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.18);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.18);
-      }
-
-      playSpring() {
-        if (!this.enabled || !this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(200, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.15);
-      }
-
-      playCastleHit() {
-        if (!this.enabled || !this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(110, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.3);
-        gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.3);
-      }
-    }
-
-    const audio = new AudioEngine();
-
-    /* ==========================================================================
-       11 CREATIVE TRAP DEFINITIONS
-       ========================================================================== */
-    const TRAP_TYPES = {
-      BRICK: {
-        id: 'BRICK',
-        name: 'Brick Wall',
-        icon: '🧱',
-        cost: 30,
-        desc: 'Solid brick obstacle. Blocks paths, forcing heroes to jump into traps.',
-        width: 1, height: 1
-      },
-      SPIKES: {
-        id: 'SPIKES',
-        name: 'Floor Spikes',
-        icon: '🗡️',
-        cost: 45,
-        desc: 'Sharp iron floor spikes dealing continuous piercing damage.',
-        width: 1, height: 1
-      },
-      ANVIL: {
-        id: 'ANVIL',
-        name: 'Ceiling Drop Anvil',
-        icon: '🔨',
-        cost: 60,
-        desc: 'Triggers & falls when a hero walks under it. Devastating crush damage.',
-        width: 1, height: 1
-      },
-      GATOR: {
-        id: 'GATOR',
-        name: 'Water Gator Pit',
-        icon: '🐊',
-        cost: 75,
-        desc: 'Converts ground into a 2-tile water pit with a hungry snapping alligator.',
-        width: 2, height: 1
-      },
-      SAW: {
-        id: 'SAW',
-        name: 'Spinning Sawblade',
-        icon: '⚙️',
-        cost: 85,
-        desc: 'High-speed motorized razor blade shredding ground & air heroes.',
-        width: 1, height: 1
-      },
-      CANNON: {
-        id: 'CANNON',
-        name: 'Fire Sling Cannon',
-        icon: '💣',
-        cost: 100,
-        desc: 'Artillery cannon launching explosive fireballs horizontally left.',
-        width: 1, height: 1
-      },
-      TRAMPOLINE: {
-        id: 'TRAMPOLINE',
-        name: 'Reverse Springboard',
-        icon: '🌀',
-        cost: 55,
-        desc: 'Launches heroes backward or straight up into ceiling spikes & anvils.',
-        width: 1, height: 1
-      },
-      FREEZE: {
-        id: 'FREEZE',
-        name: 'Freeze Ray / Ice Floor',
-        icon: '🧊',
-        cost: 80,
-        desc: 'Freezes heroes in place for 2 seconds & makes ground slippery.',
-        width: 1, height: 1
-      },
-      POISON: {
-        id: 'POISON',
-        name: 'Poison Gas Vent',
-        icon: '🧪',
-        cost: 90,
-        desc: 'Emits continuous toxic AOE cloud damaging all passing heroes.',
-        width: 1, height: 1
-      },
-      ACID: {
-        id: 'ACID',
-        name: 'Acid Pitfall Trap',
-        icon: '☣️',
-        cost: 110,
-        desc: 'Instant kill pit trap dissolving any unwary hero falling inside.',
-        width: 1, height: 1
-      },
-      TESLA: {
-        id: 'TESLA',
-        name: 'Tesla Tower',
-        icon: '⚡',
-        cost: 125,
-        desc: 'Zaps airborne and balloon-paragliding heroes in range with high-voltage lightning.',
-        width: 1, height: 1
-      }
-    };
-
-    /* ==========================================================================
-       GAME ENGINE & STATE
-       ========================================================================== */
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-
-    const GRID_COLS = 24;
-    const GRID_ROWS = 12;
-    let tileSize = 40;
-
-    let gold = 350;
-    let castleHp = 1;
-    const maxCastleHp = 1;
-    let wave = 1;
-    let kills = 0;
-    let tries = 1;
-    let gameSpeed = 1;
-    let isWaveActive = false;
-    let selectedTrap = TRAP_TYPES.BRICK;
-    let isDemolishMode = false;
-    let hoverGridX = -1;
-    let hoverGridY = -1;
-
-    // SHOP & GLOBAL UPGRADES STATE
-    let shopUpgrades = {
-      FORTRESS_WALLS: { level: 0, max: 5, baseCost: 150, name: 'Fortress Reinforcements', icon: '🏰', desc: '+10 Castle HP max & heal castle.' },
-      MANA_HARVEST: { level: 0, max: 5, baseCost: 120, name: 'Mana Harvesting', icon: '🪙', desc: 'Gain +25% bonus Gold from all hero eliminations.' },
-      TRAP_POWER: { level: 0, max: 5, baseCost: 200, name: 'Trap Overclocking', icon: '⚡', desc: 'Increase all trap damage by +20% globally.' },
-      AUTO_REPAIR: { level: 0, max: 3, baseCost: 250, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 2 Castle HP after every wave.' }
-    };
-    let globalDamageMultiplier = 1.0;
-    let goldMultiplier = 1.0;
-
-    let grid = [];
-    let heroes = [];
-    let projectiles = [];
-    let particles = [];
-    let anvils = [];
-    let poisonClouds = [];
-    let combatTexts = [];
-    let teslaArcs = [];
-
-    let heroesToSpawn = [];
-    let spawnTimer = 0;
-
-    /* ==========================================================================
-       MAP & GRID INIT
-       ========================================================================== */
-    function initGrid() {
-      grid = Array(GRID_ROWS).fill(null).map(() => Array(GRID_COLS).fill(null));
-
-      // Guarantee safe spawn runway on columns 0 through 3 on ground layer (row 9)
-      for (let c = 0; c < GRID_COLS; c++) {
-        if (c < 20) {
-          grid[9][c] = { type: 'GROUND_TILE', solid: true };
-          grid[10][c] = { type: 'DIRT_TILE', solid: true };
-          grid[11][c] = { type: 'DIRT_TILE', solid: true };
-        } else {
-          grid[8][c] = { type: 'CASTLE_TILE', solid: true };
-          grid[9][c] = { type: 'CASTLE_TILE', solid: true };
-          grid[10][c] = { type: 'CASTLE_TILE', solid: true };
-          grid[11][c] = { type: 'CASTLE_TILE', solid: true };
-        }
-      }
-
-      // Initial Water Gator Pit positioned further away from spawn runway (column 12-13)
-      grid[9][12] = null; grid[10][12] = { type: 'WATER_PIT' }; grid[11][12] = { type: 'WATER_PIT' };
-      grid[9][13] = null; grid[10][13] = { type: 'WATER_PIT' }; grid[11][13] = { type: 'WATER_PIT' };
-      grid[9][12] = { type: 'TRAP', trapId: 'GATOR', isRoot: true, rootX: 12, level: 1 };
-      grid[9][13] = { type: 'TRAP', trapId: 'GATOR', isRoot: false, rootX: 12, level: 1 };
-    }
-
-    function resizeCanvas() {
-      const container = canvas.parentElement;
-<!-- ... existing code -->
+  <!-- Load Standard ES Module Entry Point -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
