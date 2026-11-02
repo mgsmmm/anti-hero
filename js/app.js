@@ -25,7 +25,7 @@ let particles = [];
 let floatingTexts = [];
 let stars = [];
 let spawnTimer = 0;
-let spawnInterval = 25; // Faster spawn rate for 50 heroes per wave
+let spawnInterval = 25; // 50 heroes per wave fast spawn rate
 let animTimer = 0;
 
 let shopUpgrades = {
@@ -35,7 +35,7 @@ let shopUpgrades = {
   AUTO_REPAIR: { level: 0, max: 3, baseCost: 300, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 1 Castle HP after every wave.' }
 };
 
-// Lowered Jump Powers
+// Lowered Jump Powers (Realistic hops)
 const HERO_TYPES = {
   MARIO: { name: 'Super Hero', hp: 100, speed: 2.5, gold: 15, color: '#ef4444', maxJumpPower: -7.2, icon: '🏃' },
   LUIGI: { name: 'High Jumper', hp: 100, speed: 3.0, gold: 20, color: '#22c55e', maxJumpPower: -8.2, icon: '🤸' },
@@ -132,11 +132,20 @@ function triggerGameOver() {
   }
 }
 
+// FULL STATE RESET FOR RETRY & MAIN MENU
 function resetBattle() {
-  castleHp = maxCastleHp;
   isWaveActive = false;
   heroes = [];
   heroesToSpawn = [];
+  particles = [];
+  floatingTexts = [];
+  spawnTimer = 0;
+  
+  castleHp = maxCastleHp;
+  gold = 200;
+  wave = 1;
+  kills = 0;
+
   initGrid();
   updateUI();
 
@@ -245,7 +254,7 @@ function updateHeroes() {
       }
     }
 
-    // 1st Ground Jump (Tamed Jump Power)
+    // Ground Jump Execution
     if (h.isGrounded && h.jumpCooldown <= 0) {
       if ((obstacleDistance > 0 && obstacleDistance <= 2) || (trapDistance > 0 && trapDistance <= 2)) {
         let neededPower = h.maxJumpPower;
@@ -259,11 +268,11 @@ function updateHeroes() {
         addParticle(h.x + h.width / 2, h.y + h.height, '#94a3b8', 4);
       }
     }
-    // 2nd Double Jump (Controlled Low Hop Recovery)
+    // Mid-air Double Jump (Controlled 2nd Hop)
     else if (!h.isGrounded && h.jumpCount === 1 && h.jumpCooldown <= 0 && h.vy > -1) {
       const landingGX = Math.floor((h.x + h.vx * 12 * h.direction) / tileSize);
       if (isTileDangerousTrap(landingGX, 9) || isTileSolid(landingGX, 8) || trapDistance > 0) {
-        h.vy = h.maxJumpPower * 0.75; // Subtle 2nd hop
+        h.vy = h.maxJumpPower * 0.75;
         h.jumpCount = 2;
         h.jumpCooldown = 20;
         audio.playSpring();
@@ -323,7 +332,7 @@ function updateHeroes() {
       h.jumpCount = 0;
     }
 
-    // STRICT 2-HIT TRAP DAMAGE (50% MAX HP DAMAGE)
+    // STRICT 2-HIT TRAP DAMAGE (50% MAX HP DAMAGE PER CONTACT)
     const gridX = Math.floor((h.x + h.width / 2) / tileSize);
     const gridY = Math.floor((h.y + h.height / 2) / tileSize);
     const tileUnder = grid[gridY]?.[gridX];
