@@ -32,7 +32,7 @@ let shopUpgrades = {
   AUTO_REPAIR: { level: 0, max: 3, baseCost: 250, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 2 Castle HP after every wave.' }
 };
 
-// Advanced Hero Archetypes with Dynamic Stats
+// Advanced Hero Archetypes
 const HERO_TYPES = {
   MARIO: { name: 'Super Hero', hp: 120, speed: 2.0, gold: 25, color: '#ef4444', maxJumpPower: -8.5, icon: '🏃', intelligence: 0.9 },
   LUIGI: { name: 'High Jumper', hp: 90, speed: 2.4, gold: 35, color: '#22c55e', maxJumpPower: -10.5, icon: '🤸', intelligence: 1.0 },
@@ -108,13 +108,14 @@ function spawnHero(heroData) {
     y: spawnGroundY - tileSize,
     vx: heroData.speed,
     vy: 0,
-    direction: 1, // 1 = right, -1 = left
+    direction: 1,
     width: tileSize * 0.7,
     height: tileSize * 0.9,
     isGrounded: true,
     isCrouching: false,
     jumpCooldown: 0,
-    stuckTimer: 0
+    stuckTimer: 0,
+    lastHitTrapTimer: 0
   });
 }
 
@@ -144,21 +145,19 @@ function updateHeroes() {
   for (let i = heroes.length - 1; i >= 0; i--) {
     const h = heroes[i];
     if (h.jumpCooldown > 0) h.jumpCooldown--;
+    if (h.lastHitTrapTimer > 0) h.lastHitTrapTimer--;
 
     const currentGX = Math.floor((h.x + h.width / 2) / tileSize);
-    const currentGY = Math.floor((h.y + h.height / 2) / tileSize);
 
-    // --- 500% SMARTER AI RAYCAST LOOKAHEAD ---
+    // --- AI RAYCAST LOOKAHEAD ---
     if (h.isGrounded && h.jumpCooldown <= 0) {
       let obstacleDistance = -1;
       let wallHeight = 0;
       let hasHazardAhead = false;
 
-      // Scan up to 4 tiles in facing direction
       for (let dist = 1; dist <= 4; dist++) {
         const lookGX = currentGX + dist * h.direction;
         
-        // Check for wall height
         let hCount = 0;
         for (let checkY = 8; checkY >= 4; checkY--) {
           if (isTileSolid(lookGX, checkY)) hCount++;
@@ -176,19 +175,15 @@ function updateHeroes() {
         }
       }
 
-      // 1. Adaptive Height Jump Logic
       if (obstacleDistance > 0 && obstacleDistance <= 2) {
-        // Calculate dynamic jump power proportional to obstacle height
         let neededPower = h.maxJumpPower;
-        if (wallHeight === 1) neededPower *= 0.75; // Low hop for single brick
+        if (wallHeight === 1) neededPower *= 0.75;
         
         h.vy = neededPower;
         h.isGrounded = false;
         h.jumpCooldown = 28;
         audio.playSpring();
-      } 
-      // 2. Long Jump Over Hazard Pits
-      else if (hasHazardAhead && (obstacleDistance === -1 || obstacleDistance > 1)) {
+      } else if (hasHazardAhead && (obstacleDistance === -1 || obstacleDistance > 1)) {
         h.vy = h.maxJumpPower * 0.9;
         h.isGrounded = false;
         h.jumpCooldown = 35;
@@ -209,13 +204,10 @@ function updateHeroes() {
     const hitWallHead = isTileSolid(rightGridX, headGridY);
 
     if (hitWallFeet || hitWallHead) {
-      // Hard Wall Stop
       if (h.direction === 1) nextX = rightGridX * tileSize - h.width - 0.1;
       else nextX = (rightGridX + 1) * tileSize + 0.1;
 
       h.stuckTimer++;
-      
-      // If blocked for more than 45 frames by an unjumpable wall, SMART TURN AROUND!
       if (h.stuckTimer > 45) {
         h.direction *= -1;
         h.stuckTimer = 0;
@@ -243,14 +235,16 @@ function updateHeroes() {
       h.isGrounded = true;
     }
 
-    // --- TRAP COLLISIONS ---
+    // --- TRAP COLLISIONS (50% MAX HP DAMAGE PER HIT) ---
     const gridX = Math.floor((h.x + h.width / 2) / tileSize);
     const gridY = Math.floor((h.y + h.height / 2) / tileSize);
     const tileUnder = grid[gridY]?.[gridX];
 
     if (tileUnder && tileUnder.type === 'TRAP') {
-      if (tileUnder.trapId !== 'BRICK') {
-        h.hp -= 1.6 * gameSpeed;
+      if (tileUnder.trapId !== 'BRICK' && h.lastHitTrapTimer <= 0) {
+        // Deal 50% of Maximum Health per trap contact
+        h.hp -= h.maxHp * 0.5;
+        h.lastHitTrapTimer = 25; // Invulnerability window frames between ticks
 
         if (tileUnder.trapId === 'SPIKES' || tileUnder.trapId === 'SAW') {
           audio.playZap();
@@ -508,12 +502,13 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   canvas.addEventListener('contextmenu', handleCanvasRightClick);
 
+  // START GAME BUTTON: Hides main menu overlay into Prep Phase (Does NOT start wave)
   document.getElementById('start-game-btn')?.addEventListener('click', () => {
     audio.init();
     document.getElementById('main-menu-overlay').classList.add('hidden');
-    startWave();
   });
 
+  // START WAVE BUTTON: Explicitly launches hero wave
   document.getElementById('start-wave-btn')?.addEventListener('click', () => {
     audio.init();
     startWave();
