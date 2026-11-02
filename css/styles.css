@@ -1,0 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;600;800&display=swap');
+
+body {
+  font-family: 'Outfit', sans-serif;
+  user-select: none;
+  background-color: #090d16;
+  color: #f8fafc;
+  overflow: hidden;
+}
+
+.pixel-font {
+  font-family: 'Press Start 2P', cursive;
+}
+
+canvas {
+  image-rendering: pixelated;
+}
+
+/* Custom scrollbar for trap drawer */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+.trap-card {
+  transition: all 0.15s ease;
+}
+.trap-card:hover:not(.disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+}
+.trap-card.selected {
+  border-color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.18);
+  box-shadow: 0 0 0 2px #f59e0b;
+}
+.trap-card.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.85);
+}
