@@ -25,7 +25,7 @@ let particles = [];
 let floatingTexts = [];
 let stars = [];
 let spawnTimer = 0;
-let spawnInterval = 45;
+let spawnInterval = 25; // Faster spawn rate for 50 heroes per wave
 let animTimer = 0;
 
 let shopUpgrades = {
@@ -35,11 +35,11 @@ let shopUpgrades = {
   AUTO_REPAIR: { level: 0, max: 3, baseCost: 300, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 1 Castle HP after every wave.' }
 };
 
-// All heroes get double jump (max 2 jumps per airborne sequence)
+// Lowered Jump Powers
 const HERO_TYPES = {
-  MARIO: { name: 'Super Hero', hp: 100, speed: 2.5, gold: 15, color: '#ef4444', maxJumpPower: -9.5, icon: '🏃' },
-  LUIGI: { name: 'High Jumper', hp: 100, speed: 3.0, gold: 20, color: '#22c55e', maxJumpPower: -11.5, icon: '🤸' },
-  TANK: { name: 'Armor Knight', hp: 100, speed: 1.6, gold: 30, color: '#475569', maxJumpPower: -8.0, icon: '🛡️' }
+  MARIO: { name: 'Super Hero', hp: 100, speed: 2.5, gold: 15, color: '#ef4444', maxJumpPower: -7.2, icon: '🏃' },
+  LUIGI: { name: 'High Jumper', hp: 100, speed: 3.0, gold: 20, color: '#22c55e', maxJumpPower: -8.2, icon: '🤸' },
+  TANK: { name: 'Armor Knight', hp: 100, speed: 1.6, gold: 30, color: '#475569', maxJumpPower: -6.2, icon: '🛡️' }
 };
 
 function initStars() {
@@ -151,10 +151,11 @@ function startWave() {
   isWaveActive = true;
   heroesToSpawn = [];
   
-  const heroCount = 6 + wave * 3;
+  // Exactly 50 heroes per wave
+  const heroCount = 50;
   for (let i = 0; i < heroCount; i++) {
-    if (i % 2 === 0) heroesToSpawn.push({ ...HERO_TYPES.LUIGI });
-    else if (i % 4 === 0 && wave >= 2) heroesToSpawn.push({ ...HERO_TYPES.TANK });
+    if (i % 3 === 0) heroesToSpawn.push({ ...HERO_TYPES.LUIGI });
+    else if (i % 5 === 0) heroesToSpawn.push({ ...HERO_TYPES.TANK });
     else heroesToSpawn.push({ ...HERO_TYPES.MARIO });
   }
 
@@ -175,7 +176,7 @@ function spawnHero(heroData) {
     width: tileSize * 0.7,
     height: tileSize * 0.9,
     isGrounded: true,
-    jumpCount: 0, // Track exact jump count (Max 2)
+    jumpCount: 0,
     jumpCooldown: 0,
     stuckTimer: 0,
     lastHitTrapTimer: 0
@@ -221,15 +222,13 @@ function updateHeroes() {
 
     const currentGX = Math.floor((h.x + h.width / 2) / tileSize);
 
-    // --- TRAP AVOIDANCE & LOOKAHEAD RAYCASTING ---
     let obstacleDistance = -1;
     let wallHeight = 0;
     let trapDistance = -1;
 
-    for (let dist = 1; dist <= 6; dist++) {
+    for (let dist = 1; dist <= 4; dist++) {
       const lookGX = currentGX + dist * h.direction;
       
-      // Check for wall solid tiles
       let hCount = 0;
       for (let checkY = 8; checkY >= 4; checkY--) {
         if (isTileSolid(lookGX, checkY)) hCount++;
@@ -239,7 +238,6 @@ function updateHeroes() {
         wallHeight = hCount;
       }
 
-      // Check for active traps or pit hazards to ALWAYS avoid
       if (isTileDangerousTrap(lookGX, 9) || isTileDangerousTrap(lookGX, 8)) {
         if (trapDistance === -1) {
           trapDistance = dist;
@@ -247,11 +245,11 @@ function updateHeroes() {
       }
     }
 
-    // 1st Jump Execution (From Ground to Avoid Trap or Wall)
+    // 1st Ground Jump (Tamed Jump Power)
     if (h.isGrounded && h.jumpCooldown <= 0) {
-      if ((obstacleDistance > 0 && obstacleDistance <= 3) || (trapDistance > 0 && trapDistance <= 3)) {
+      if ((obstacleDistance > 0 && obstacleDistance <= 2) || (trapDistance > 0 && trapDistance <= 2)) {
         let neededPower = h.maxJumpPower;
-        if (wallHeight === 1 && trapDistance === -1) neededPower *= 0.70;
+        if (wallHeight === 1 && trapDistance === -1) neededPower *= 0.65;
 
         h.vy = neededPower;
         h.isGrounded = false;
@@ -261,13 +259,12 @@ function updateHeroes() {
         addParticle(h.x + h.width / 2, h.y + h.height, '#94a3b8', 4);
       }
     }
-    // 2nd Jump (Double Jump Mid-Air Recovery to Guarantee Trap Avoidance)
-    else if (!h.isGrounded && h.jumpCount === 1 && h.jumpCooldown <= 0 && h.vy > -2) {
-      // Predict landing tile based on current trajectory
-      const landingGX = Math.floor((h.x + h.vx * 16 * h.direction) / tileSize);
+    // 2nd Double Jump (Controlled Low Hop Recovery)
+    else if (!h.isGrounded && h.jumpCount === 1 && h.jumpCooldown <= 0 && h.vy > -1) {
+      const landingGX = Math.floor((h.x + h.vx * 12 * h.direction) / tileSize);
       if (isTileDangerousTrap(landingGX, 9) || isTileSolid(landingGX, 8) || trapDistance > 0) {
-        h.vy = h.maxJumpPower * 0.95;
-        h.jumpCount = 2; // Maximum 2 jumps reached
+        h.vy = h.maxJumpPower * 0.75; // Subtle 2nd hop
+        h.jumpCount = 2;
         h.jumpCooldown = 20;
         audio.playSpring();
         addParticle(h.x + h.width / 2, h.y + h.height, '#38bdf8', 6);
@@ -318,15 +315,15 @@ function updateHeroes() {
       h.y = checkFeetY * tileSize - h.height;
       h.vy = 0;
       h.isGrounded = true;
-      h.jumpCount = 0; // Reset jump counter on ground contact
+      h.jumpCount = 0;
     } else if (h.y + h.height >= groundY) {
       h.y = groundY - h.height;
       h.vy = 0;
       h.isGrounded = true;
-      h.jumpCount = 0; // Reset jump counter on ground contact
+      h.jumpCount = 0;
     }
 
-    // STRICT 2-HIT TRAP DAMAGE (50% MAX HP DAMAGE PER CONTACT)
+    // STRICT 2-HIT TRAP DAMAGE (50% MAX HP DAMAGE)
     const gridX = Math.floor((h.x + h.width / 2) / tileSize);
     const gridY = Math.floor((h.y + h.height / 2) / tileSize);
     const tileUnder = grid[gridY]?.[gridX];
