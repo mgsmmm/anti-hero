@@ -229,14 +229,18 @@ function updateHeroes() {
 
       h.stuckTimer++;
       
+      // Tank Wall Bashing Logic
       if (h.name === 'Armor Knight' && h.stuckTimer > 25) {
         trapManager.demolishTrap(rightGridX, footGridY);
         audio.playBuild();
         addParticle(rightGridX * tileSize + tileSize / 2, footGridY * tileSize + tileSize / 2, '#b45309', 10);
         h.stuckTimer = 0;
-      } else if (h.stuckTimer > 30) {
-        h.direction *= -1;
-        h.stuckTimer = 0;
+      } 
+      // INSTANT DEATH ON BACKTRACK/TURNING AROUND
+      else if (h.stuckTimer > 30) {
+        h.hp = 0; // Instantly kill hero when forced to turn around
+        addFloatingText(`☠️ CURSED!`, h.x + h.width / 2, h.y - 15, '#e11d48');
+        addParticle(h.x + h.width / 2, h.y + h.height / 2, '#991b1b', 16);
       }
     } else {
       h.stuckTimer = Math.max(0, h.stuckTimer - 1);
@@ -262,7 +266,7 @@ function updateHeroes() {
       h.hasDoubleJumped = false;
     }
 
-    // Trap Damage & Visual FX
+    // Trap Damage Processing
     const gridX = Math.floor((h.x + h.width / 2) / tileSize);
     const gridY = Math.floor((h.y + h.height / 2) / tileSize);
     const tileUnder = grid[gridY]?.[gridX];
@@ -285,6 +289,7 @@ function updateHeroes() {
       }
     }
 
+    // Castle Breach
     if (h.x >= 20 * tileSize) {
       castleHp -= 2;
       audio.playCastleHit();
@@ -305,6 +310,7 @@ function updateHeroes() {
       continue;
     }
 
+    // Defeat Handling
     if (h.hp <= 0) {
       audio.playScream();
       const reward = Math.floor(h.gold * (1 + shopUpgrades.MANA_HARVEST.level * 0.15));
@@ -348,14 +354,12 @@ function drawGame() {
   animTimer += 0.05;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Background Sky Gradient
   const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
   bgGrad.addColorStop(0, '#090d16');
   bgGrad.addColorStop(1, '#0f172a');
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // 1. Draw Map Tiles & Textured Traps
   for (let r = 0; r < GRID_ROWS; r++) {
     for (let c = 0; c < GRID_COLS; c++) {
       const x = c * tileSize;
@@ -370,7 +374,7 @@ function drawGame() {
         if (tile.type === 'GROUND_TILE') {
           ctx.fillStyle = '#334155';
           ctx.fillRect(x, y, tileSize, tileSize);
-          ctx.fillStyle = '#22c55e'; // Grass top strip
+          ctx.fillStyle = '#22c55e';
           ctx.fillRect(x, y, tileSize, 4);
         } else if (tile.type === 'DIRT_TILE') {
           ctx.fillStyle = '#1e293b';
@@ -407,7 +411,6 @@ function drawGame() {
     }
   }
 
-  // 2. Render Heroes
   heroes.forEach((h) => {
     ctx.fillStyle = h.color;
     ctx.fillRect(h.x, h.y, h.width, h.height);
@@ -428,7 +431,6 @@ function drawGame() {
     ctx.fillRect(h.x, h.y - 8, h.width * hpRatio, 4);
   });
 
-  // 3. Render Particles & Floating Damage Text
   particles.forEach((p) => {
     ctx.fillStyle = p.color;
     ctx.fillRect(p.x, p.y, p.size, p.size);
@@ -443,7 +445,6 @@ function drawGame() {
     ctx.restore();
   });
 
-  // 4. Placement Hover Highlight
   if (hoverGridX >= 0 && hoverGridX < GRID_COLS && hoverGridY >= 0 && hoverGridY < GRID_ROWS) {
     ctx.fillStyle = isDemolishMode ? 'rgba(244, 63, 94, 0.4)' : 'rgba(245, 158, 11, 0.4)';
     ctx.fillRect(hoverGridX * tileSize, hoverGridY * tileSize, tileSize * (isDemolishMode ? 1 : selectedTrap.width), tileSize);
