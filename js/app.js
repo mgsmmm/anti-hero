@@ -1,6 +1,4 @@
-import { GRID_COLS, GRID_ROWS, TRAP_TYPES } from './config.js';
-import { audio } from './audio.js';
-import { TrapManager } from './traps.js';
+// (Removed imports - variables are now accessed globally)
 
 let canvas, ctx;
 let tileSize = 40;
@@ -46,7 +44,6 @@ function initGrid() {
 
   trapManager = new TrapManager(grid, GRID_ROWS, GRID_COLS);
 
-  // Default starting trap setup
   grid[9][12] = null; grid[10][12] = { type: 'WATER_PIT' }; grid[11][12] = { type: 'WATER_PIT' };
   grid[9][13] = null; grid[10][13] = { type: 'WATER_PIT' }; grid[11][13] = { type: 'WATER_PIT' };
   grid[9][12] = { type: 'TRAP', trapId: 'GATOR', isRoot: true, rootX: 12, level: 1 };
@@ -196,7 +193,6 @@ function handleCanvasRightClick(e) {
 function drawGame() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw Grid & Tiles
   for (let r = 0; r < GRID_ROWS; r++) {
     for (let c = 0; c < GRID_COLS; c++) {
       const x = c * tileSize;
@@ -232,7 +228,6 @@ function drawGame() {
     }
   }
 
-  // Draw Hover Cell
   if (hoverGridX >= 0 && hoverGridX < GRID_COLS && hoverGridY >= 0 && hoverGridY < GRID_ROWS) {
     ctx.fillStyle = isDemolishMode ? 'rgba(244, 63, 94, 0.3)' : 'rgba(245, 158, 11, 0.3)';
     ctx.fillRect(hoverGridX * tileSize, hoverGridY * tileSize, tileSize * (isDemolishMode ? 1 : selectedTrap.width), tileSize);
@@ -241,7 +236,6 @@ function drawGame() {
   requestAnimationFrame(drawGame);
 }
 
-// Bind Events on DOM Load
 window.addEventListener('DOMContentLoaded', () => {
   canvas = document.getElementById('gameCanvas');
   ctx = canvas.getContext('2d');
@@ -251,7 +245,6 @@ window.addEventListener('DOMContentLoaded', () => {
   updateUI();
   renderShop();
 
-  // Canvas Mouse Movement & Clicks
   canvas.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
     hoverGridX = Math.floor((e.clientX - rect.left) / tileSize);
@@ -267,7 +260,6 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   canvas.addEventListener('contextmenu', handleCanvasRightClick);
 
-  // Main UI Buttons
   document.getElementById('start-game-btn')?.addEventListener('click', () => {
     audio.init();
     document.getElementById('main-menu-overlay').classList.add('hidden');
@@ -298,7 +290,6 @@ window.addEventListener('DOMContentLoaded', () => {
     updateUI();
   });
 
-  // Shop Modal Handlers
   const shopModal = document.getElementById('shop-modal');
   document.getElementById('open-shop-btn')?.addEventListener('click', () => {
     renderShop();
@@ -311,6 +302,5 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('resize', resizeCanvas);
 
-  // Kickoff canvas render loop
   requestAnimationFrame(drawGame);
 });
