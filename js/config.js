@@ -15,7 +15,7 @@ const TRAP_TYPES = {
     name: 'Floor Spikes',
     icon: '🗡️',
     cost: 45,
-    desc: 'Sharp iron floor spikes dealing continuous piercing damage.',
+    desc: 'Sharp iron floor spikes dealing 50% max HP damage.',
     width: 1, height: 1
   },
   ANVIL: {
@@ -31,7 +31,7 @@ const TRAP_TYPES = {
     name: 'Water Gator Pit',
     icon: '🐊',
     cost: 75,
-    desc: 'Converts ground into a 2-tile water pit with a hungry snapping alligator.',
+    desc: 'Converts ground into a 2-tile water pit with hungry snapping alligators.',
     width: 2, height: 1
   },
   SAW: {
@@ -87,7 +87,7 @@ const TRAP_TYPES = {
     name: 'Tesla Tower',
     icon: '⚡',
     cost: 125,
-    desc: 'Zaps airborne and balloon-paragliding heroes in range with high-voltage lightning.',
+    desc: 'Zaps airborne and balloon-paragliding heroes in range with lightning.',
     width: 1, height: 1
   }
 };
