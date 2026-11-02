@@ -8,6 +8,8 @@ export class AudioEngine {
     if (!this.ctx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AudioContext();
+    } else if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
     }
   }
 
