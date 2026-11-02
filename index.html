@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Super Anti-Mario: Trap Master</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="flex flex-col h-screen w-screen bg-slate-950 text-slate-100">
@@ -36,7 +38,7 @@
             <div class="w-12 sm:w-20 bg-slate-800 h-2.5 rounded-full overflow-hidden">
               <div id="castle-hp-bar" class="bg-emerald-500 h-full w-full transition-all duration-300"></div>
             </div>
-            <span id="castle-hp-val" class="text-[11px] sm:text-xs text-slate-200 font-bold">30/30</span>
+            <span id="castle-hp-val" class="text-[11px] sm:text-xs text-slate-200 font-bold">1/1</span>
           </div>
         </div>
       </div>
@@ -157,7 +159,7 @@
             <div class="font-bold text-amber-400 text-xs sm:text-sm" id="info-name">Brick Wall</div>
             <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono" id="info-cost">30 G</span>
           </div>
-          <div class="text-slate-400 text-[11px] mt-1 leading-snug" id="info-desc">Blocks path & forces heroes to jump into overhead traps.</div>
+          <div class="text-slate-400 text-[11px] mt-1 leading-snug" id="info-desc">Blocks path & forces heroes to jump into traps.</div>
         </div>
 
         <div class="flex gap-2">
@@ -169,7 +171,7 @@
     </aside>
   </main>
 
-  <!-- Load Standard ES Module Entry Point -->
+  <!-- Single Entry Point module -->
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
