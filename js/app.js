@@ -35,7 +35,6 @@ let shopUpgrades = {
   AUTO_REPAIR: { level: 0, max: 3, baseCost: 300, name: 'Repair Drones', icon: '🛠️', desc: 'Automatically restores 1 Castle HP after every wave.' }
 };
 
-// Balanced & Lower Jump Values
 const HERO_TYPES = {
   MARIO: { name: 'Super Hero', hp: 100, speed: 2.5, gold: 15, color: '#ef4444', maxJumpPower: -5.5, icon: '🏃' },
   LUIGI: { name: 'High Jumper', hp: 100, speed: 3.0, gold: 20, color: '#22c55e', maxJumpPower: -6.2, icon: '🤸' },
@@ -60,25 +59,36 @@ function initGrid() {
   const groundRow = 15;
   const castleStartCol = 35;
 
+  // 1. Build Base Ground & Castle Structure
   for (let c = 0; c < GRID_COLS; c++) {
     if (c < castleStartCol) {
       grid[groundRow][c] = { type: 'GROUND_TILE', solid: true };
       grid[groundRow + 1][c] = { type: 'DIRT_TILE', solid: true };
       grid[groundRow + 2][c] = { type: 'DIRT_TILE', solid: true };
     } else {
-      for (let r = groundRow - 2; r < GRID_ROWS; r++) {
+      for (let r = groundRow - 4; r < GRID_ROWS; r++) {
         grid[r][c] = { type: 'CASTLE_TILE', solid: true };
       }
     }
   }
 
-  trapManager = new TrapManager(grid, GRID_ROWS, GRID_COLS);
+  // 2. Add Multi-Tier Platforms (Upper & Middle Paths)
+  // Low Platform (Left)
+  for (let c = 6; c <= 12; c++) {
+    grid[11][c] = { type: 'GROUND_TILE', solid: true };
+  }
+  
+  // High Platform (Center-Left)
+  for (let c = 15; c <= 21; c++) {
+    grid[8][c] = { type: 'GROUND_TILE', solid: true };
+  }
 
-  // Preset Gator Pit on wider map
-  grid[groundRow][16] = null; grid[groundRow + 1][16] = { type: 'WATER_PIT' }; grid[groundRow + 2][16] = { type: 'WATER_PIT' };
-  grid[groundRow][17] = null; grid[groundRow + 1][17] = { type: 'WATER_PIT' }; grid[groundRow + 2][17] = { type: 'WATER_PIT' };
-  grid[groundRow][16] = { type: 'TRAP', trapId: 'GATOR', isRoot: true, rootX: 16, level: 1 };
-  grid[groundRow][17] = { type: 'TRAP', trapId: 'GATOR', isRoot: false, rootX: 16, level: 1 };
+  // Mid Platform (Center-Right)
+  for (let c = 24; c <= 30; c++) {
+    grid[11][c] = { type: 'GROUND_TILE', solid: true };
+  }
+
+  trapManager = new TrapManager(grid, GRID_ROWS, GRID_COLS);
 }
 
 function resizeCanvas() {
@@ -230,7 +240,7 @@ function updateHeroes() {
   }
 
   const gravity = 0.40;
-  const groundY = 15 * tileSize;
+  const defaultGroundY = 15 * tileSize;
 
   for (let i = heroes.length - 1; i >= 0; i--) {
     const h = heroes[i];
@@ -238,16 +248,18 @@ function updateHeroes() {
     if (h.lastHitTrapTimer > 0) h.lastHitTrapTimer--;
 
     const currentGX = Math.floor((h.x + h.width / 2) / tileSize);
+    const currentGY = Math.floor((h.y + h.height - 2) / tileSize);
 
     let obstacleDistance = -1;
     let wallHeight = 0;
     let trapDistance = -1;
+    let platformAboveDistance = -1;
 
     for (let dist = 1; dist <= 3; dist++) {
       const lookGX = currentGX + dist * h.direction;
       
       let hCount = 0;
-      for (let checkY = 14; checkY >= 10; checkY--) {
+      for (let checkY = currentGY; checkY >= Math.max(0, currentGY - 3); checkY--) {
         if (isTileSolid(lookGX, checkY)) hCount++;
       }
       if (hCount > 0 && obstacleDistance === -1) {
@@ -255,16 +267,21 @@ function updateHeroes() {
         wallHeight = hCount;
       }
 
-      if (isTileDangerousTrap(lookGX, 15) || isTileDangerousTrap(lookGX, 14)) {
+      if (isTileDangerousTrap(lookGX, currentGY + 1) || isTileDangerousTrap(lookGX, currentGY)) {
         if (trapDistance === -1) {
           trapDistance = dist;
         }
       }
+
+      // Detect elevated platforms to climb alternative paths
+      if (isTileSolid(lookGX, currentGY - 3) || isTileSolid(lookGX, currentGY - 4)) {
+        if (platformAboveDistance === -1) platformAboveDistance = dist;
+      }
     }
 
-    // 1st Ground Jump (Tamed Hop Impulse)
+    // 1st Ground/Platform Jump
     if (h.isGrounded && h.jumpCooldown <= 0) {
-      if ((obstacleDistance > 0 && obstacleDistance <= 2) || (trapDistance > 0 && trapDistance <= 2)) {
+      if ((obstacleDistance > 0 && obstacleDistance <= 2) || (trapDistance > 0 && trapDistance <= 2) || platformAboveDistance === 1) {
         let neededPower = h.maxJumpPower;
         if (wallHeight === 1 && trapDistance === -1) neededPower *= 0.70;
 
@@ -276,10 +293,10 @@ function updateHeroes() {
         addParticle(h.x + h.width / 2, h.y + h.height, '#94a3b8', 4);
       }
     }
-    // 2nd Double Jump (Controlled Low Recovery Hop)
+    // 2nd Double Jump to reach higher platforms or recover
     else if (!h.isGrounded && h.jumpCount === 1 && h.jumpCooldown <= 0 && h.vy > -0.5) {
       const landingGX = Math.floor((h.x + h.vx * 8 * h.direction) / tileSize);
-      if (isTileDangerousTrap(landingGX, 15) || isTileSolid(landingGX, 14) || trapDistance > 0) {
+      if (isTileDangerousTrap(landingGX, currentGY + 1) || isTileSolid(landingGX, currentGY) || trapDistance > 0) {
         h.vy = h.maxJumpPower * 0.55;
         h.jumpCount = 2;
         h.jumpCooldown = 20;
@@ -322,19 +339,20 @@ function updateHeroes() {
 
     h.x = nextX;
 
+    // Vertical Physics & Landing Detection Across Multi-Tier Platforms
     h.y += h.vy * gameSpeed;
     h.vy += gravity * gameSpeed;
 
     const checkFeetY = Math.floor((h.y + h.height) / tileSize);
     const centerGX = Math.floor((h.x + h.width / 2) / tileSize);
 
-    if (isTileSolid(centerGX, checkFeetY)) {
+    if (isTileSolid(centerGX, checkFeetY) && h.vy >= 0) {
       h.y = checkFeetY * tileSize - h.height;
       h.vy = 0;
       h.isGrounded = true;
       h.jumpCount = 0;
-    } else if (h.y + h.height >= groundY) {
-      h.y = groundY - h.height;
+    } else if (h.y + h.height >= defaultGroundY) {
+      h.y = defaultGroundY - h.height;
       h.vy = 0;
       h.isGrounded = true;
       h.jumpCount = 0;
