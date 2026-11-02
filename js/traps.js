@@ -1,6 +1,4 @@
-import { TRAP_TYPES } from './config.js';
-
-export class TrapManager {
+class TrapManager {
   constructor(grid, rows, cols) {
     this.grid = grid;
     this.GRID_ROWS = rows;
@@ -10,7 +8,6 @@ export class TrapManager {
   canPlaceTrap(x, y, trapType) {
     if (x < 0 || y < 0 || x >= this.GRID_COLS || y >= this.GRID_ROWS) return false;
     
-    // Check footprint
     for (let i = 0; i < trapType.width; i++) {
       const targetX = x + i;
       if (targetX >= this.GRID_COLS) return false;
